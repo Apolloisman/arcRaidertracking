@@ -1,0 +1,51 @@
+{
+  "name": "@justinjd00/arc-raiders-api",
+  "version": "1.0.0",
+  "description": "Type-safe TypeScript wrapper for the MetaForge ARC Raiders API. Access items, quests, ARCs, maps, and traders with full TypeScript support.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justinjd00/arc-raiders-wrapper.git"
+  },
+  "homepage": "https://github.com/justinjd00/arc-raiders-wrapper#readme",
+  "bugs": {
+    "url": "https://github.com/justinjd00/arc-raiders-wrapper/issues"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "echo 'Linting checks'",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "arc-raiders",
+    "arc",
+    "raiders",
+    "embark-studios",
+    "game-api",
+    "metaforge",
+    "api",
+    "client",
+    "typescript",
+    "type-safe",
+    "wrapper",
+    "game"
+  ],
+  "author": "justinjd00",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.5.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
+
