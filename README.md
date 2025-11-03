@@ -11,6 +11,7 @@
 ![npm downloads](https://img.shields.io/npm/dm/@justinjd00/arc-raiders-api)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
 
+
 </div>
 
 Type-safe TypeScript wrapper for the MetaForge ARC Raiders API. Fully typed, easy to use, and optimized for Arc Raiders game data.
