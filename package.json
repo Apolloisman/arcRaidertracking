@@ -1,6 +1,6 @@
 {
   "name": "@justinjd00/arc-raiders-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Type-safe TypeScript wrapper for the MetaForge ARC Raiders API. Access items, quests, ARCs, maps, and traders with full TypeScript support.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
