@@ -1,4 +1,4 @@
-# Arc Raiders API Client
+# Arc Raiders API Wrapper Client
 
 <div align="center">
 
