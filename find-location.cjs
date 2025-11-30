@@ -67,4 +67,3 @@ if (args.length < 2) {
 
 findLocation(args[0], args[1]);
 
-

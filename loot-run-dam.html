@@ -79,17 +79,36 @@
             z-index: 2;
             background: transparent !important;
         }
+        .map-grid line {
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 1;
+        }
+        .grid-label {
+            fill: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            text-shadow: 0 0 3px #000000;
+        }
         .waypoint-line {
             stroke: #4a9eff;
             stroke-width: 3;
             fill: none;
             opacity: 0.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
         .waypoint {
             cursor: pointer;
         }
         .waypoint-spawn {
             fill: #00ff00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-infill {
+            fill: #00ffcc;
             stroke: #ffffff;
             stroke-width: 2;
         }
@@ -115,6 +134,25 @@
             text-anchor: middle;
             pointer-events: none;
         }
+        .cluster-box rect {
+            fill: rgba(255, 170, 0, 0.12);
+            stroke: #ffaa00;
+            stroke-width: 2;
+            stroke-dasharray: 6 4;
+        }
+        .cluster-box text {
+            fill: #ffaa00;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            text-shadow: 0 0 4px #000000;
+        }
+        .cluster-centroid {
+            fill: #ffaa00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
         .legend {
             background: #2a2a2a;
             padding: 15px;
@@ -132,6 +170,11 @@
             border-radius: 50%;
             margin-right: 10px;
             border: 2px solid #ffffff;
+        }
+        .legend-color.cluster {
+            border-radius: 4px;
+            border: 2px dashed #ffaa00;
+            background: rgba(255, 170, 0, 0.15);
         }
         .waypoints-list {
             background: #2a2a2a;
@@ -154,6 +197,24 @@
             font-size: 14px;
             color: #b0b0b0;
         }
+        .cluster-summary {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .cluster-summary h3 {
+            margin-top: 0;
+            color: #ffaa00;
+        }
+        .cluster-summary ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .cluster-summary li {
+            margin: 4px 0;
+            color: #e0e0e0;
+        }
     </style>
 </head>
 <body>
@@ -161,14 +222,14 @@
         <h1>🗺️ Loot Run: DAM</h1>
         
         <div class="stats">
-            <p><strong>Total Distance:</strong> 1663.09 units</p>
-            <p><strong>Estimated Time:</strong> 6m 33s</p>
-            <p><strong>Waypoints:</strong> 8</p>
+            <p><strong>Total Distance:</strong> 1720.11 units</p>
+            <p><strong>Estimated Time:</strong> 6m 44s</p>
+            <p><strong>Waypoints:</strong> 5 (10 locations, 2 clustered)</p>
         </div>
 
         <div class="map-container">
             <h2>Path Visualization</h2>
-            <div class="map-overlay-wrapper" style="max-width: 1200px; margin: 0 auto;">
+            <div class="map-overlay-wrapper" style="max-width: 1233px; margin: 0 auto;">
                 <!-- Map image as background -->
                 <img id="mapImage" src="map-dam.png" 
                      alt="Map" 
@@ -178,52 +239,271 @@
                 
                 <!-- Overlay SVG for path -->
                 <svg class="path-overlay"
-                     viewBox="0 0 1200 900" 
+                     viewBox="0 0 1233 1116" 
                      preserveAspectRatio="xMidYMid meet"
                      xmlns="http://www.w3.org/2000/svg">
-                    <!-- Draw path lines -->
+                    <g class="map-grid">
+                      <line x1="205.5" y1="0" x2="205.5" y2="1116" />
+                      <line x1="411" y1="0" x2="411" y2="1116" />
+                      <line x1="616.5" y1="0" x2="616.5" y2="1116" />
+                      <line x1="822" y1="0" x2="822" y2="1116" />
+                      <line x1="1027.5" y1="0" x2="1027.5" y2="1116" />
+                      <line x1="0" y1="186" x2="1233" y2="186" />
+                      <line x1="0" y1="372" x2="1233" y2="372" />
+                      <line x1="0" y1="558" x2="1233" y2="558" />
+                      <line x1="0" y1="744" x2="1233" y2="744" />
+                      <line x1="0" y1="930" x2="1233" y2="930" />
+                      <text class="grid-label" x="102.75" y="14">A</text>
+                      <text class="grid-label" x="308.25" y="14">B</text>
+                      <text class="grid-label" x="513.75" y="14">C</text>
+                      <text class="grid-label" x="719.25" y="14">D</text>
+                      <text class="grid-label" x="924.75" y="14">E</text>
+                      <text class="grid-label" x="1130.25" y="14">F</text>
+                      <text class="grid-label" x="102.75" y="1112">A</text>
+                      <text class="grid-label" x="308.25" y="1112">B</text>
+                      <text class="grid-label" x="513.75" y="1112">C</text>
+                      <text class="grid-label" x="719.25" y="1112">D</text>
+                      <text class="grid-label" x="924.75" y="1112">E</text>
+                      <text class="grid-label" x="1130.25" y="1112">F</text>
+                      <text class="grid-label" x="12" y="97">1</text>
+                      <text class="grid-label" x="12" y="283">2</text>
+                      <text class="grid-label" x="12" y="469">3</text>
+                      <text class="grid-label" x="12" y="655">4</text>
+                      <text class="grid-label" x="12" y="841">5</text>
+                      <text class="grid-label" x="12" y="1027">6</text>
+                      <text class="grid-label" x="1223" y="97">1</text>
+                      <text class="grid-label" x="1223" y="283">2</text>
+                      <text class="grid-label" x="1223" y="469">3</text>
+                      <text class="grid-label" x="1223" y="655">4</text>
+                      <text class="grid-label" x="1223" y="841">5</text>
+                      <text class="grid-label" x="1223" y="1027">6</text>
+                    </g>
+                    <!-- Arrow marker definitions -->
+                    <defs>
+                      <marker id="arrowhead-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#ff0000" />
+                      </marker>
+                      <marker id="arrowhead-red-light" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#ff6666" />
+                      </marker>
+                    </defs>
                     
-                    <line class="waypoint-line" x1="540.2222214810022" y1="809.9992184036769" x2="591.7305785235205" y2="595.989649523631" />
-                    <line class="waypoint-line" x1="591.7305785235205" y1="595.989649523631" x2="554.7114032701328" y2="579.2945014612712" />
-                    <line class="waypoint-line" x1="554.7114032701328" y1="579.2945014612712" x2="539.7402539994972" y2="572.8265747096913" />
-                    <line class="waypoint-line" x1="539.7402539994972" y1="572.8265747096913" x2="530.1414855190976" y2="567.8462884968002" />
-                    <line class="waypoint-line" x1="530.1414855190976" y1="567.8462884968002" x2="527.5455809853129" y2="567.7552206292848" />
-                    <line class="waypoint-line" x1="527.5455809853129" y1="567.7552206292848" x2="519.8370509946495" y2="565.1706030590306" />
-                    <line class="waypoint-line" x1="519.8370509946495" y1="565.1706030590306" x2="575.5941376884145" y2="587.2872031112538" />
+                    <!-- Draw curved path -->
+                    <path class="waypoint-line" d="M 555.0780751615611 1004.3994309197399 C 550.2074890882703 996.421068259053, 507.0724424273607 917.6147576548415, 496.63104228207226 908.6590789914972 C 486.1896421367838 899.7034003281528, 437.5961796841113 898.3583242775123, 429.7812734180995 896.9312869596076 C 421.9663671520877 895.5042496417029, 406.52357021528775 892.3270289637281, 402.85216708993045 891.5346311766402 C 399.18076396457315 890.7422333895523, 387.5568357507888 887.7996696091478, 385.72443591381193 887.4225135145527 C 383.89203607683504 887.0453574199577, 382.4404135926301 887.2600072636048, 380.8633690462075 887.0087580414987 C 379.2863244997849 886.7575088193926, 368.2090620255552 884.7587572114099, 366.79990135674103 884.4075228492798 C 365.39074068792684 884.0562884871496, 363.39828731459625 882.8618750775435, 363.9534410204371 882.7939456959361 C 364.5085947262779 882.7260163143288, 364.852894805593 881.89345432841, 373.4617458268308 883.5923702699921 C 382.0705968480686 885.2912862115742, 459.44316098791916 901.54855643451, 467.2596532752908 903.1809369949208" />
                     
-                    <!-- Draw waypoints -->
+                    <!-- Draw cluster boxes -->
                     
-                        <circle class="waypoint waypoint-spawn" cx="540.2222214810022" cy="809.9992184036769" r="10" data-step="1" data-name="INFILL: Entry Point" data-coords="(3749.0, 4008.9)" />
-                        <text class="waypoint-label" x="540.2222214810022" y="791.9992184036769" fill="#ffffff" stroke="#000000" stroke-width="0.5">1</text>
+                      <g class="cluster-box" data-count="2">
+                        <rect x="388.85216708993045" y="877.5346311766402" width="54.92910632816904" height="33.3966557829674" rx="6" ry="6" />
+                        <text x="416.31672025401497" y="871.5346311766402">General Area: Steps 3 & 4</text>
+                        <circle class="cluster-centroid" cx="416.31672025401497" cy="894.2329590681239" r="7" />
+                      </g>
                     
-                        <circle class="waypoint waypoint-cache" cx="591.7305785235205" cy="595.989649523631" r="10" data-step="2" data-name="raider_cache" data-coords="(3666.7, 2983.5)" />
-                        <text class="waypoint-label" x="591.7305785235205" y="577.989649523631" fill="#ffffff" stroke="#000000" stroke-width="0.5">2</text>
                     
-                        <circle class="waypoint waypoint-cache" cx="554.7114032701328" cy="579.2945014612712" r="10" data-step="3" data-name="weapon_case" data-coords="(3502.3, 2882.7)" />
-                        <text class="waypoint-label" x="554.7114032701328" y="561.2945014612712" fill="#ffffff" stroke="#000000" stroke-width="0.5">3</text>
+                      <g class="cluster-box" data-count="5">
+                        <rect x="349.9534410204371" y="868.7939456959361" width="49.77099489337485" height="32.6285678186166" rx="6" ry="6" />
+                        <text x="374.83893846712454" y="862.7939456959361">General Area: Steps 5–9</text>
+                        <circle class="cluster-centroid" cx="374.83893846712454" cy="885.1082296052444" r="7" />
+                      </g>
                     
-                        <circle class="waypoint waypoint-cache" cx="539.7402539994972" cy="572.8265747096913" r="10" data-step="4" data-name="Weapon Case" data-coords="(3436.0, 2850.5)" />
-                        <text class="waypoint-label" x="539.7402539994972" y="554.8265747096913" fill="#ffffff" stroke="#000000" stroke-width="0.5">4</text>
+
+                    <!-- Draw waypoints (skip ones grouped into clusters) -->
                     
-                        <circle class="waypoint waypoint-cache" cx="530.1414855190976" cy="567.8462884968002" r="10" data-step="5" data-name="weapon_case" data-coords="(3393.8, 2819.9)" />
-                        <text class="waypoint-label" x="530.1414855190976" y="549.8462884968002" fill="#ffffff" stroke="#000000" stroke-width="0.5">5</text>
+                        <circle class="waypoint waypoint-infill" cx="555.0780751615611" cy="1004.3994309197399" r="10" data-step="1" data-name="INFILL: Entry Point" data-coords="(3749.0, 4008.9)" />
+                        <text class="waypoint-label" x="555.0780751615611" y="986.3994309197399" fill="#ffffff" stroke="#000000" stroke-width="0.5">INF</text>
                     
-                        <circle class="waypoint waypoint-cache" cx="527.5455809853129" cy="567.7552206292848" r="10" data-step="6" data-name="ammo_crate" data-coords="(3381.8, 2827.9)" />
-                        <text class="waypoint-label" x="527.5455809853129" y="549.7552206292848" fill="#ffffff" stroke="#000000" stroke-width="0.5">6</text>
+                        <circle class="waypoint waypoint-cache" cx="496.63104228207226" cy="908.6590789914972" r="10" data-step="2" data-name="raider_cache" data-coords="(3666.7, 2983.5)" />
+                        <text class="waypoint-label" x="496.63104228207226" y="890.6590789914972" fill="#ffffff" stroke="#000000" stroke-width="0.5">2</text>
                     
-                        <circle class="waypoint waypoint-cache" cx="519.8370509946495" cy="565.1706030590306" r="10" data-step="7" data-name="Container" data-coords="(3347.2, 2822.1)" />
-                        <text class="waypoint-label" x="519.8370509946495" y="547.1706030590306" fill="#ffffff" stroke="#000000" stroke-width="0.5">7</text>
                     
-                        <circle class="waypoint waypoint-extraction" cx="575.5941376884145" cy="587.2872031112538" r="10" data-step="8" data-name="EXFIL: Water Treatment Elevator" data-coords="(3594.8, 2919.9)" />
-                        <text class="waypoint-label" x="575.5941376884145" y="569.2872031112538" fill="#ffffff" stroke="#000000" stroke-width="0.5">8</text>
+                    
+                    
+                    
+                    
+                    
+                    
+                        <circle class="waypoint waypoint-extraction" cx="467.2596532752908" cy="903.1809369949208" r="10" data-step="10" data-name="EXFIL: Water Treatment Elevator" data-coords="(3594.8, 2919.9)" />
+                        <text class="waypoint-label" x="467.2596532752908" y="885.1809369949208" fill="#ffffff" stroke="#000000" stroke-width="0.5">EXF</text>
+                    
+                    <!-- Early spawn interception arrows -->
+                    
+                            <line x1="512.7637930184438" y1="921.8310468333179" x2="508.2501221533871" y2="918.1457529578569" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="510.5069575859155" y="911.9883998955875" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">1m 23s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
+                            <line x1="510.5863780149622" y1="925.6934698484126" x2="443.91275521650846" y2="901.9613189854734" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="477.2495666157353" y="905.827394416943" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">1m 51s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
+                            <line x1="510.45587071913724" y1="926.0791327783667" x2="417.1342342296759" y2="896.1196675140975" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="463.7950524744066" y="903.099400146232" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">2m 3s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
+                            <line x1="510.4198595173305" y1="926.193102714365" x2="400.0480544402575" y2="891.8760460797043" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="455.233956978794" y="901.0345743970347" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">2m 12s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
+                            <line x1="510.3928989531836" y1="926.2809071796266" x2="395.2180959158994" y2="891.3609777621176" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="452.8054974345415" y="900.8209424708721" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">2m 12s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
+                            <line x1="510.356577879082" y1="926.402849315036" x2="381.1965371580887" y2="888.6190401059648" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="445.7765575185854" y="899.5109447105003" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">2m 17s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
+                            <line x1="510.3732086907509" y1="926.3464718964999" x2="378.33088742370524" y2="887.0705138201628" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="444.3520480572281" y="898.7084928583313" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">2m 22s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
+                            <line x1="510.42026953505643" y1="926.1917842469411" x2="387.7848912559003" y2="888.0474241437097" 
+                                  stroke="#ff0000" 
+                                  stroke-width="2.5" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#arrowhead-red)" />
+                            <circle cx="522.83366224025" cy="930.0528309374963" r="6" fill="#ff0000" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="449.10258039547836" y="899.1196041953253" 
+                                  fill="#ff0000" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">2m 22s</text>
+                            <text x="522.83366224025" y="918.0528309374963" 
+                                  fill="#ff0000" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">player_spawn</text>
                 </svg>
             </div>
             <p style="margin-top: 10px; font-size: 12px; color: #888;">
-                💡 Reference: Map bounds (0, 0) to (6000, 4500)
-                 | Calibrated using 4 spawn points
+                💡 Reference: Map bounds (2503, 1019) to (5483, 4270) · Image 1233×1116px
+                 · Derived from live map data
             </p>
             <p style="margin-top: 5px; font-size: 11px; color: #666;">
-                ✅ Using multi-point calibration for better accuracy
+                ✅ Using 5 spawn-based calibration points
+                
             </p>
         </div>
 
@@ -245,6 +525,140 @@
                 <div class="legend-color" style="background: #ff00ff;"></div>
                 <span>Raider Key</span>
             </div>
+            <div class="legend-item">
+                <div class="legend-color cluster"></div>
+                <span>General loot cluster (look in boxed area)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff0000; border-color: #ff0000;"></div>
+                <span>Early spawn interception (bright red = can intercept, light red = safe) - shows arrival time</span>
+            </div>
+        </div>
+
+        <div class="schedule-section" style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin-top: 20px;">
+            <h3>⏱️ Timing Schedule</h3>
+            <p style="color: #b0b0b0; font-size: 14px; margin-bottom: 15px;">
+                Shows when to arrive, wait times, when other players could reach each location, and how long you have at each location before another team could arrive (Safe Window)
+            </p>
+            <table style="width: 100%; border-collapse: collapse; color: #e0e0e0;">
+                <thead>
+                    <tr style="background: #1e1e1e; border-bottom: 2px solid #4a9eff;">
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Step</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Location</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Your Arrival</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Fastest Player Arrival</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Wait Time</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Safe Window</th>
+                        <th style="padding: 10px; text-align: left;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr style="border-bottom: 1px solid #3a3a3a;">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">1</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>INFILL: Entry Point</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">0m 0s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">-</td>
+                        <td style="padding: 8px; color: #00ff00;">✅ Start</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; ">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">2</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>raider_cache</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">3m 26s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; ">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; ">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #00ff00;">✅ Safe</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; background: rgba(255, 170, 0, 0.1);">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">3</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>weapon_case</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4m 4s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ff6666;">1m 51s (player_spawn)</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ffaa00; font-weight: bold;">0m 21s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #ffaa00;">⏱️ Wait Required</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; background: rgba(255, 170, 0, 0.1);">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>Weapon Case</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4m 19s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ff6666;">2m 3s (player_spawn)</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ffaa00; font-weight: bold;">0m 25s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #ffaa00;">⏱️ Wait Required</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; background: rgba(255, 170, 0, 0.1);">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">5</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>weapon_case</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4m 29s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ff6666;">2m 12s (player_spawn)</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ffaa00; font-weight: bold;">0m 31s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #ffaa00;">⏱️ Wait Required</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; background: rgba(255, 170, 0, 0.1);">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">6</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>ammo_crate</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4m 32s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ff6666;">2m 12s (player_spawn)</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ffaa00; font-weight: bold;">0m 37s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #ffaa00;">⏱️ Wait Required</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; background: rgba(255, 170, 0, 0.1);">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">7</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>Container</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4m 39s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ff6666;">2m 17s (player_spawn)</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ffaa00; font-weight: bold;">0m 45s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #ffaa00;">⏱️ Wait Required</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; background: rgba(255, 170, 0, 0.1);">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">8</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>base_container</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4m 45s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ff6666;">2m 22s (player_spawn)</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ffaa00; font-weight: bold;">0m 54s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #ffaa00;">⏱️ Wait Required</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; background: rgba(255, 170, 0, 0.1);">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">9</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>arc_probe</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">4m 50s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ff6666;">2m 22s (player_spawn)</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #ffaa00; font-weight: bold;">1m 0s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #ffaa00;">⏱️ Wait Required</td>
+                    </tr>
+
+                    <tr style="border-bottom: 1px solid #3a3a3a; ">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">10</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>EXFIL: Water Treatment Elevator</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">5m 44s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; ">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; ">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: #e0e0e0; font-weight: normal;" title="Time you have at this location before another player could arrive">-</td>
+                        <td style="padding: 8px; color: #00ff00;">✅ Safe</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 15px; padding: 10px; background: rgba(255, 170, 0, 0.15); border-left: 4px solid #ffaa00; border-radius: 4px;">
+                <p style="margin: 0; color: #ffaa00;"><strong>⏱️ Wait Times:</strong> Wait at the location until the specified time has passed to avoid other players.</p>
+            </div>
         </div>
 
         <div class="waypoints-list">
@@ -254,6 +668,7 @@
                 <h4>🚀 Step 1: INFILL: Start from your current position</h4>
                 <p><strong>Location:</strong> INFILL: Entry Point</p>
                 <p><strong>Coordinates:</strong> (3749.0, 4008.9)</p>
+                <p><strong>Grid:</strong> C6</p>
                 <p><strong>Distance to extraction:</strong> 1099.8 units</p>
                 
             </div>
@@ -262,57 +677,60 @@
                 <h4>📦 Step 2: Head to raider_cache (near extraction zone)</h4>
                 <p><strong>Location:</strong> raider_cache</p>
                 <p><strong>Coordinates:</strong> (3666.7, 2983.5)</p>
+                <p><strong>Grid:</strong> C4</p>
                 <p><strong>Distance to extraction:</strong> 96.0 units</p>
                 
             </div>
             
             <div class="waypoint-item">
-                <h4>📦 Step 3: Loot weapon_case (safe zone - near extraction) 🔁 Loot cluster (4 caches nearby) ⏱️ ⏱️ Wait 0m 21s - player_spawn could arrive at 1m 51s (shortly after you at 4m 4s). Safety buffer.</h4>
-                <p><strong>Location:</strong> weapon_case</p>
+                <h4>📦 Step 3: General Loot Area (2 locations)</h4>
+                <p><strong>Location:</strong> weapon_case (and 1 nearby)</p>
                 <p><strong>Coordinates:</strong> (3502.3, 2882.7)</p>
+                <p><strong>Grid:</strong> C4</p>
+                <p><strong>Look for these loot locations in this area:</strong></p>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    <li>weapon_case</li>
+                    <li>Weapon Case</li>
+                </ul>
                 <p><strong>Distance to extraction:</strong> 99.6 units</p>
                 
             </div>
             
             <div class="waypoint-item">
-                <h4>📦 Step 4: Loot Weapon Case (173 units from extraction) 🔁 Loot cluster (7 caches nearby) ⏱️ ⏱️ Wait 0m 25s - player_spawn could arrive at 2m 3s (shortly after you at 4m 40s). Safety buffer.</h4>
-                <p><strong>Location:</strong> Weapon Case</p>
-                <p><strong>Coordinates:</strong> (3436.0, 2850.5)</p>
-                <p><strong>Distance to extraction:</strong> 173.3 units</p>
-                
-            </div>
-            
-            <div class="waypoint-item">
-                <h4>📦 Step 5: Loot weapon_case (224 units from extraction) 🔁 Loot cluster (12 caches nearby) ⏱️ ⏱️ Wait 0m 31s - player_spawn could arrive at 2m 12s (shortly after you at 5m 15s). Safety buffer.</h4>
-                <p><strong>Location:</strong> weapon_case</p>
+                <h4>📦 Step 5: General Loot Area (5 locations)</h4>
+                <p><strong>Location:</strong> weapon_case (and 4 nearby)</p>
                 <p><strong>Coordinates:</strong> (3393.8, 2819.9)</p>
+                <p><strong>Grid:</strong> B4</p>
+                <p><strong>Look for these loot locations in this area:</strong></p>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    <li>weapon_case</li>
+                    <li>ammo_crate</li>
+                    <li>Container</li>
+                    <li>base_container</li>
+                    <li>arc_probe</li>
+                </ul>
                 <p><strong>Distance to extraction:</strong> 224.4 units</p>
                 
             </div>
             
             <div class="waypoint-item">
-                <h4>📦 Step 6: Loot ammo_crate (232 units from extraction) 🔁 Loot cluster (12 caches nearby) ⏱️ ⏱️ Wait 0m 37s - player_spawn could arrive at 2m 12s (shortly after you at 5m 49s). Safety buffer.</h4>
-                <p><strong>Location:</strong> ammo_crate</p>
-                <p><strong>Coordinates:</strong> (3381.8, 2827.9)</p>
-                <p><strong>Distance to extraction:</strong> 231.9 units</p>
-                
-            </div>
-            
-            <div class="waypoint-item">
-                <h4>📦 Step 7: Loot Container (266 units from extraction) 🔁 Loot cluster (11 caches nearby) ⏱️ ⏱️ Wait 0m 45s - player_spawn could arrive at 2m 17s (shortly after you at 6m 33s). Safety buffer.</h4>
-                <p><strong>Location:</strong> Container</p>
-                <p><strong>Coordinates:</strong> (3347.2, 2822.1)</p>
-                <p><strong>Distance to extraction:</strong> 266.2 units</p>
-                
-            </div>
-            
-            <div class="waypoint-item">
-                <h4>✈️ Step 8: EXFIL: Extract at Water Treatment Elevator</h4>
+                <h4>✈️ Step 10: EXFIL: Extract at Water Treatment Elevator</h4>
                 <p><strong>Location:</strong> EXFIL: Water Treatment Elevator</p>
                 <p><strong>Coordinates:</strong> (3594.8, 2919.9)</p>
+                <p><strong>Grid:</strong> C4</p>
                 <p><strong>Distance to extraction:</strong> 0.0 units</p>
                 
             </div>
+        </div>
+
+        
+        <div class="cluster-summary">
+            <h3>📦 General Loot Areas (Count as 1 waypoint each)</h3>
+            <p style="color: #888; font-size: 13px; margin-bottom: 10px;">These areas contain multiple loot locations grouped together for efficiency.</p>
+            <ul>
+                <li><strong>General Area: Steps 3 & 4</strong> · Look for: weapon_case, Weapon Case</li>
+                <li><strong>General Area: Steps 5–9</strong> · Look for: weapon_case, ammo_crate, Container, base_container, arc_probe</li>
+            </ul>
         </div>
     </div>
 
@@ -322,8 +740,8 @@
             const img = document.getElementById('mapImage');
             if (img) {
                 // If image loads, we can adjust bounds based on actual image size
-                const actualWidth = img.naturalWidth || 1200;
-                const actualHeight = img.naturalHeight || 900;
+                const actualWidth = img.naturalWidth || 1233;
+                const actualHeight = img.naturalHeight || 1116;
                 console.log('Map image loaded:', actualWidth, 'x', actualHeight);
             }
         }

@@ -46,4 +46,3 @@ async function listSpawns() {
 
 listSpawns();
 
-

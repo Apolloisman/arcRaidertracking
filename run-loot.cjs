@@ -9,6 +9,11 @@
 const { createArcRaidersClient } = require('./dist/index.js');
 const fs = require('fs');
 const path = require('path');
+const { imageSize } = require('image-size');
+
+const GRID_COLUMNS = 6;
+const GRID_ROWS = 6;
+const GRID_COLUMN_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 // Use the script's directory (where run-loot.cjs is located)
 // In CommonJS (.cjs files), __dirname is always available
@@ -305,7 +310,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
         ...(z !== undefined && { z }),
       } : undefined,
       endAtExtraction: true,
-      maxCaches: 6, // 6 loot locations (spawn + 6 loot + exit = 8 total waypoints, extraction is 8th)
+      maxCaches: 8, // Spawn + 8 loot locations + extraction = 10 total waypoints (extraction is always #10)
       avoidDangerousAreas: true,
       algorithm: 'extraction-aware',
       maxTimeBeforeExtraction: 300, // 5 minutes
@@ -313,6 +318,9 @@ Available maps: dam, spaceport, buried-city, blue-gate
       playerMovementSpeed: 5, // Units per second
       roundDuration: 1800, // 30 minutes total round
       lateSpawnWindow: { min: 960, max: 1200 }, // 16-20 minutes late spawn window
+      spawnAvoidanceRadius: 250,
+      dangerCorridorRadius: 120,
+      clusterRadius: 150,
     };
 
     const lootRun = await client.generateLootRunForMap(mapName, options);
@@ -327,7 +335,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
     
     // Automatically generate map overlay (pass spawn points for calibration)
     console.log('\n🔄 Generating map overlay...');
-    generateMapOverlay(lootRun, mapName, spawnPoints);
+    generateMapOverlay(lootRun, mapName, spawnPoints, mapData);
     
   } catch (error) {
     console.error('\n❌ Error generating loot run:', error.message);
@@ -338,67 +346,123 @@ Available maps: dam, spaceport, buried-city, blue-gate
   }
 }
 
-function getMapImagePath(mapName) {
-  // Check if map image file exists in script's directory
-  const imagePath = path.join(scriptDir, `map-${mapName}.png`);
+function getMapImageInfo(mapName) {
+  const imageFilename = `map-${mapName}.png`;
+  const imagePath = path.join(scriptDir, imageFilename);
+  const fallbackWidth = 1200;
+  const fallbackHeight = 900;
+
   if (fs.existsSync(imagePath)) {
-    // Use relative path instead of base64 for better performance
-    // The HTML file will be in the same directory as the image
-    return `map-${mapName}.png`;
+    try {
+      // Read file as buffer for image-size library
+      const fileBuffer = fs.readFileSync(imagePath);
+      const { width, height } = imageSize(fileBuffer);
+      if (width && height) {
+        return {
+          src: imageFilename,
+          width,
+          height,
+          exists: true,
+          path: imagePath,
+        };
+      }
+    } catch (error) {
+      console.warn(`⚠️  Could not determine size of ${imageFilename}:`, error.message);
+    }
+    return {
+      src: imageFilename,
+      width: fallbackWidth,
+      height: fallbackHeight,
+      exists: true,
+      path: imagePath,
+    };
   }
-  // Return placeholder if image doesn't exist
-  const placeholder = `<svg width="1200" height="900" xmlns="http://www.w3.org/2000/svg">
-    <rect width="1200" height="900" fill="#2a2a2a"/>
-    <text x="600" y="400" text-anchor="middle" fill="#888" font-size="20">Map Image Not Found</text>
-    <text x="600" y="430" text-anchor="middle" fill="#666" font-size="14">Save map image as: map-${mapName}.png in this folder</text>
-    <text x="600" y="460" text-anchor="middle" fill="#666" font-size="12">Path overlay will still work with coordinate system</text>
+
+  const placeholder = `<svg width="${fallbackWidth}" height="${fallbackHeight}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100%" height="100%" fill="#2a2a2a"/>
+    <text x="50%" y="45%" text-anchor="middle" fill="#888" font-size="20">Map Image Not Found</text>
+    <text x="50%" y="50%" text-anchor="middle" fill="#666" font-size="14">Save map image as: ${imageFilename}</text>
+    <text x="50%" y="55%" text-anchor="middle" fill="#666" font-size="12">Path overlay will still work with coordinate system</text>
   </svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(placeholder).toString('base64')}`;
+
+  return {
+    src: `data:image/svg+xml;base64,${Buffer.from(placeholder).toString('base64')}`,
+    width: fallbackWidth,
+    height: fallbackHeight,
+    exists: false,
+  };
 }
 
-function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
+function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) {
   try {
-    // Map coordinate bounds and image dimensions
-    const MAP_BOUNDS = {
-      dam: {
-        minX: 0,
-        maxX: 6000,
-        minY: 0,
-        maxY: 4500,
-        imageWidth: 1200,
-        imageHeight: 900,
-      },
-      spaceport: {
-        minX: 0,
-        maxX: 6000,
-        minY: 0,
-        maxY: 4500,
-        imageWidth: 1200,
-        imageHeight: 900,
-      },
-      'buried-city': {
-        minX: 0,
-        maxX: 6000,
-        minY: 0,
-        maxY: 4500,
-        imageWidth: 1200,
-        imageHeight: 900,
-      },
-      'blue-gate': {
-        minX: 0,
-        maxX: 6000,
-        minY: 0,
-        maxY: 4500,
-        imageWidth: 1200,
-        imageHeight: 900,
-      }
+    const FALLBACK_BOUNDS = {
+      dam: { minX: 0, maxX: 6000, minY: 0, maxY: 4500 },
+      spaceport: { minX: 0, maxX: 6000, minY: 0, maxY: 4500 },
+      'buried-city': { minX: 0, maxX: 6000, minY: 0, maxY: 4500 },
+      'blue-gate': { minX: 0, maxX: 6000, minY: 0, maxY: 4500 },
+    };
+
+    const mapImageInfo = getMapImageInfo(mapName);
+
+    const derivedCoordinates = [];
+    if (lootRun?.waypoints?.length) {
+      lootRun.waypoints.forEach(wp => {
+        if (wp.coordinates) derivedCoordinates.push(wp.coordinates);
+      });
+    }
+    if (mapData?.waypoints?.length) {
+      mapData.waypoints.forEach(wp => {
+        if (wp.coordinates) derivedCoordinates.push(wp.coordinates);
+      });
+    }
+    if (mapData?.pois?.length) {
+      mapData.pois.forEach(poi => {
+        if (poi.coordinates) derivedCoordinates.push(poi.coordinates);
+      });
+    }
+
+    let bounds;
+    if (derivedCoordinates.length >= 2) {
+      const xs = derivedCoordinates.map(c => c.x);
+      const ys = derivedCoordinates.map(c => c.y);
+      bounds = {
+        minX: Math.min(...xs),
+        maxX: Math.max(...xs),
+        minY: Math.min(...ys),
+        maxY: Math.max(...ys),
+        imageWidth: mapImageInfo.width,
+        imageHeight: mapImageInfo.height,
+        dynamic: true,
+      };
+    } else {
+      const fallback = FALLBACK_BOUNDS[mapName] || FALLBACK_BOUNDS.dam;
+      bounds = {
+        ...fallback,
+        imageWidth: mapImageInfo.width,
+        imageHeight: mapImageInfo.height,
+        dynamic: false,
+      };
+    }
+
+    const coordToGridCell = (coord) => {
+      const spanX = bounds.maxX - bounds.minX || 1;
+      const spanY = bounds.maxY - bounds.minY || 1;
+      const normX = Math.min(0.9999, Math.max(0, (coord.x - bounds.minX) / spanX));
+      const normY = Math.min(0.9999, Math.max(0, (coord.y - bounds.minY) / spanY));
+      const colIndex = Math.floor(normX * GRID_COLUMNS);
+      const rowIndex = Math.floor(normY * GRID_ROWS);
+      const columnLabel = GRID_COLUMN_LABELS[colIndex] || `C${colIndex + 1}`;
+      const rowLabel = (rowIndex + 1).toString();
+      return `${columnLabel}${rowLabel}`;
     };
     
-    const bounds = MAP_BOUNDS[mapName] || MAP_BOUNDS.dam;
-    
-    // Multi-point calibration using spawn points
+    // Multi-point calibration using spawn points and user's actual infill location
     // Use at least 2 spawn points for better accuracy
     let referencePoints = [];
+    
+    // If we have the user's actual infill coordinates, use them as a primary reference
+    const infillWaypoint = lootRun.waypoints[0];
+    const userInfillCoords = infillWaypoint && infillWaypoint.coordinates ? infillWaypoint.coordinates : null;
     
     if (spawnPoints.length >= 2) {
       // Use up to 4 spawn points for calibration (more points = better accuracy)
@@ -429,6 +493,22 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
           pixel: { x: pixelX, y: pixelY }
         };
       });
+      
+      // If user provided custom infill coordinates, add them as a high-priority reference
+      // This ensures the infill point is accurately positioned
+      if (userInfillCoords) {
+        const infillNormX = (userInfillCoords.x - minX) / (maxX - minX || 1);
+        const infillNormY = (userInfillCoords.y - minY) / (maxY - minY || 1);
+        const margin = 0.1;
+        const infillPixelX = margin * bounds.imageWidth + infillNormX * (1 - 2 * margin) * bounds.imageWidth;
+        const infillPixelY = margin * bounds.imageHeight + infillNormY * (1 - 2 * margin) * bounds.imageHeight;
+        
+        // Add infill as first reference point (highest priority)
+        referencePoints.unshift({
+          coord: { x: userInfillCoords.x, y: userInfillCoords.y },
+          pixel: { x: infillPixelX, y: infillPixelY }
+        });
+      }
     } else if (spawnPoints.length === 1) {
       // Single spawn point - use center of map as second reference
       const sp = spawnPoints[0];
@@ -443,6 +523,19 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
           pixel: { x: bounds.imageWidth * 0.5, y: bounds.imageHeight * 0.5 }
         }
       ];
+      
+      // Add user infill if available
+      if (userInfillCoords) {
+        const infillNormX = (userInfillCoords.x - bounds.minX) / (bounds.maxX - bounds.minX || 1);
+        const infillNormY = (userInfillCoords.y - bounds.minY) / (bounds.maxY - bounds.minY || 1);
+        referencePoints.unshift({
+          coord: { x: userInfillCoords.x, y: userInfillCoords.y },
+          pixel: { 
+            x: infillNormX * bounds.imageWidth, 
+            y: (1 - infillNormY) * bounds.imageHeight 
+          }
+        });
+      }
     }
     
     // Calculate coordinate to pixel transformation using multiple reference points
@@ -494,12 +587,129 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
       }
     };
     
-    // Get all coordinates for bounds calculation
-    const allCoords = lootRun.waypoints.map(wp => wp.coordinates);
-    const minX = Math.min(...allCoords.map(c => c.x));
-    const maxX = Math.max(...allCoords.map(c => c.x));
-    const minY = Math.min(...allCoords.map(c => c.y));
-    const maxY = Math.max(...allCoords.map(c => c.y));
+    const columnLabels = Array.from({ length: GRID_COLUMNS }, (_, i) => GRID_COLUMN_LABELS[i] || `C${i + 1}`);
+    const rowLabels = Array.from({ length: GRID_ROWS }, (_, i) => (i + 1).toString());
+
+    const verticalGridLines = [];
+    for (let i = 1; i < GRID_COLUMNS; i++) {
+      const ratio = i / GRID_COLUMNS;
+      const pixelX = ratio * mapImageInfo.width;
+      verticalGridLines.push({ x1: pixelX, y1: 0, x2: pixelX, y2: mapImageInfo.height });
+    }
+
+    const horizontalGridLines = [];
+    for (let i = 1; i < GRID_ROWS; i++) {
+      const ratio = i / GRID_ROWS;
+      const pixelY = ratio * mapImageInfo.height;
+      horizontalGridLines.push({ x1: 0, y1: pixelY, x2: mapImageInfo.width, y2: pixelY });
+    }
+
+    const columnLabelPositions = columnLabels.map((label, idx) => ({
+      label,
+      x: (idx + 0.5) * (mapImageInfo.width / GRID_COLUMNS),
+    }));
+    const rowLabelPositions = rowLabels.map((label, idx) => ({
+      label,
+      y: (idx + 0.5) * (mapImageInfo.height / GRID_ROWS),
+    }));
+
+    // Generate a smooth Catmull-Rom style curve through waypoints
+    function generateCurvedPath(waypoints, coordToPixelFn) {
+      if (waypoints.length < 2) return '';
+
+      const pixelPoints = waypoints.map(wp => coordToPixelFn(wp.coordinates));
+      let pathData = `M ${pixelPoints[0].x} ${pixelPoints[0].y}`;
+
+      for (let i = 0; i < pixelPoints.length - 1; i++) {
+        const p0 = pixelPoints[i - 1] || pixelPoints[i];
+        const p1 = pixelPoints[i];
+        const p2 = pixelPoints[i + 1];
+        const p3 = pixelPoints[i + 2] || p2;
+
+        // Catmull-Rom to cubic Bezier conversion for smooth transitions
+        const tension = 0.5;
+        const cp1x = p1.x + (p2.x - p0.x) * tension / 6;
+        const cp1y = p1.y + (p2.y - p0.y) * tension / 6;
+        const cp2x = p2.x - (p3.x - p1.x) * tension / 6;
+        const cp2y = p2.y - (p3.y - p1.y) * tension / 6;
+
+        pathData += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+      }
+
+      return pathData;
+    }
+
+    // Generate the curved path data before the template string
+    const curvedPathData = generateCurvedPath(lootRun.waypoints, coordToPixel);
+
+    // Precompute pixel positions for all waypoints
+    const pixelWaypoints = lootRun.waypoints.map((wp, index) => ({
+      index,
+      waypoint: wp,
+      pixel: coordToPixel(wp.coordinates),
+    }));
+
+    // Detect tight clusters (nearby caches/ARCs) to highlight as general areas
+    const clusterAssignments = new Map();
+    const clusterBoxes = [];
+    const clusterDistancePx = 45;
+    const clusterPaddingPx = 14;
+
+    for (let i = 0; i < pixelWaypoints.length; i++) {
+      if (clusterAssignments.has(i)) continue;
+      const current = pixelWaypoints[i];
+      if (!current || !current.waypoint) continue;
+      if (!['cache', 'arc'].includes(current.waypoint.type || '')) continue;
+
+      const members = [current];
+
+      for (let j = i + 1; j < pixelWaypoints.length; j++) {
+        if (clusterAssignments.has(j)) continue;
+        const candidate = pixelWaypoints[j];
+        if (!candidate || !candidate.waypoint) continue;
+        if (!['cache', 'arc'].includes(candidate.waypoint.type || '')) continue;
+
+        const dx = current.pixel.x - candidate.pixel.x;
+        const dy = current.pixel.y - candidate.pixel.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= clusterDistancePx) {
+          members.push(candidate);
+        }
+      }
+
+      if (members.length >= 2) {
+        const indices = members.map(member => member.index);
+        members.forEach(member => clusterAssignments.set(member.index, clusterBoxes.length));
+
+        const xs = members.map(member => member.pixel.x);
+        const ys = members.map(member => member.pixel.y);
+        const minX = Math.min(...xs) - clusterPaddingPx;
+        const maxX = Math.max(...xs) + clusterPaddingPx;
+        const minY = Math.min(...ys) - clusterPaddingPx;
+        const maxY = Math.max(...ys) + clusterPaddingPx;
+
+        const stepNumbers = indices
+          .map(idx => idx + 1)
+          .sort((a, b) => a - b);
+        const stepLabel = stepNumbers.length === 2
+          ? `${stepNumbers[0]} & ${stepNumbers[1]}`
+          : `${stepNumbers[0]}–${stepNumbers[stepNumbers.length - 1]}`;
+
+        clusterBoxes.push({
+          id: clusterBoxes.length,
+          indices,
+          minX,
+          minY,
+          width: maxX - minX,
+          height: maxY - minY,
+          centerX: (minX + maxX) / 2,
+          centerY: (minY + maxY) / 2,
+          label: `General Area: Steps ${stepLabel}`,
+          count: members.length,
+        });
+      }
+    }
 
     // Generate HTML
     const html = `<!DOCTYPE html>
@@ -583,17 +793,36 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
             z-index: 2;
             background: transparent !important;
         }
+        .map-grid line {
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 1;
+        }
+        .grid-label {
+            fill: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            text-shadow: 0 0 3px #000000;
+        }
         .waypoint-line {
             stroke: #4a9eff;
             stroke-width: 3;
             fill: none;
             opacity: 0.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
         .waypoint {
             cursor: pointer;
         }
         .waypoint-spawn {
             fill: #00ff00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-infill {
+            fill: #00ffcc;
             stroke: #ffffff;
             stroke-width: 2;
         }
@@ -619,6 +848,25 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
             text-anchor: middle;
             pointer-events: none;
         }
+        .cluster-box rect {
+            fill: rgba(255, 170, 0, 0.12);
+            stroke: #ffaa00;
+            stroke-width: 2;
+            stroke-dasharray: 6 4;
+        }
+        .cluster-box text {
+            fill: #ffaa00;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            text-shadow: 0 0 4px #000000;
+        }
+        .cluster-centroid {
+            fill: #ffaa00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
         .legend {
             background: #2a2a2a;
             padding: 15px;
@@ -636,6 +884,11 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
             border-radius: 50%;
             margin-right: 10px;
             border: 2px solid #ffffff;
+        }
+        .legend-color.cluster {
+            border-radius: 4px;
+            border: 2px dashed #ffaa00;
+            background: rgba(255, 170, 0, 0.15);
         }
         .waypoints-list {
             background: #2a2a2a;
@@ -658,6 +911,24 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
             font-size: 14px;
             color: #b0b0b0;
         }
+        .cluster-summary {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .cluster-summary h3 {
+            margin-top: 0;
+            color: #ffaa00;
+        }
+        .cluster-summary ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .cluster-summary li {
+            margin: 4px 0;
+            color: #e0e0e0;
+        }
     </style>
 </head>
 <body>
@@ -667,14 +938,14 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
         <div class="stats">
             <p><strong>Total Distance:</strong> ${lootRun.totalDistance.toFixed(2)} units</p>
             <p><strong>Estimated Time:</strong> ${lootRun.estimatedTime ? Math.round(lootRun.estimatedTime / 60) + 'm ' + Math.round(lootRun.estimatedTime % 60) + 's' : 'N/A'}</p>
-            <p><strong>Waypoints:</strong> ${lootRun.waypoints.length}</p>
+            <p><strong>Waypoints:</strong> ${lootRun.waypoints.length - clusterBoxes.reduce((sum, box) => sum + (box.count - 1), 0)} (${lootRun.waypoints.length} locations, ${clusterBoxes.length} clustered)</p>
         </div>
 
         <div class="map-container">
             <h2>Path Visualization</h2>
-            <div class="map-overlay-wrapper" style="max-width: ${bounds.imageWidth}px; margin: 0 auto;">
+            <div class="map-overlay-wrapper" style="max-width: ${mapImageInfo.width}px; margin: 0 auto;">
                 <!-- Map image as background -->
-                <img id="mapImage" src="${getMapImagePath(mapName)}" 
+                <img id="mapImage" src="${mapImageInfo.src}" 
                      alt="Map" 
                      style="width: 100%; height: auto; display: block; border: 2px solid #3a3a3a; border-radius: 4px;"
                      onload="calibrateOverlay(); console.log('Map image loaded:', this.naturalWidth, 'x', this.naturalHeight);"
@@ -682,36 +953,148 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
                 
                 <!-- Overlay SVG for path -->
                 <svg class="path-overlay"
-                     viewBox="0 0 ${bounds.imageWidth} ${bounds.imageHeight}" 
+                     viewBox="0 0 ${mapImageInfo.width} ${mapImageInfo.height}" 
                      preserveAspectRatio="xMidYMid meet"
                      xmlns="http://www.w3.org/2000/svg">
-                    <!-- Draw path lines -->
-                    ${lootRun.waypoints.map((wp, i) => {
-                      if (i === 0) return '';
-                      const prev = lootRun.waypoints[i - 1];
-                      const prevPx = coordToPixel(prev.coordinates);
-                      const currPx = coordToPixel(wp.coordinates);
-                      return `<line class="waypoint-line" x1="${prevPx.x}" y1="${prevPx.y}" x2="${currPx.x}" y2="${currPx.y}" />`;
-                    }).join('\n                    ')}
+                    <g class="map-grid">
+                      ${verticalGridLines.map(line => `<line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}" />`).join('\n                      ')}
+                      ${horizontalGridLines.map(line => `<line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}" />`).join('\n                      ')}
+                      ${columnLabelPositions.map(col => `<text class="grid-label" x="${col.x}" y="14">${col.label}</text>`).join('\n                      ')}
+                      ${columnLabelPositions.map(col => `<text class="grid-label" x="${col.x}" y="${mapImageInfo.height - 4}">${col.label}</text>`).join('\n                      ')}
+                      ${rowLabelPositions.map(row => `<text class="grid-label" x="12" y="${row.y + 4}">${row.label}</text>`).join('\n                      ')}
+                      ${rowLabelPositions.map(row => `<text class="grid-label" x="${mapImageInfo.width - 10}" y="${row.y + 4}">${row.label}</text>`).join('\n                      ')}
+                    </g>
+                    <!-- Arrow marker definitions -->
+                    <defs>
+                      <marker id="arrowhead-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#ff0000" />
+                      </marker>
+                      <marker id="arrowhead-red-light" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#ff6666" />
+                      </marker>
+                    </defs>
                     
-                    <!-- Draw waypoints -->
-                    ${lootRun.waypoints.map((wp, i) => {
-                      const px = coordToPixel(wp.coordinates);
+                    <!-- Draw curved path -->
+                    <path class="waypoint-line" d="${curvedPathData}" />
+                    
+                    <!-- Draw cluster boxes -->
+                    ${clusterBoxes.map(box => `
+                      <g class="cluster-box" data-count="${box.count}">
+                        <rect x="${box.minX}" y="${box.minY}" width="${box.width}" height="${box.height}" rx="6" ry="6" />
+                        <text x="${box.centerX}" y="${box.minY - 6}">${box.label}</text>
+                        <circle class="cluster-centroid" cx="${box.centerX}" cy="${box.centerY}" r="7" />
+                      </g>
+                    `).join('\n                    ')}
+
+                    <!-- Draw waypoints (skip ones grouped into clusters) -->
+                    ${pixelWaypoints.map(({ waypoint: wp, index: i, pixel: px }) => {
+                      if (!wp) return '';
+                      if (clusterAssignments.has(i)) return '';
                       const type = wp.type || 'cache';
-                      const colorClass = `waypoint-${type}`;
-                      const label = i + 1;
+                      const isInfill = i === 0;
+                      const isExfil = i === lootRun.waypoints.length - 1;
+                      const colorClass = isInfill ? 'waypoint-infill' : `waypoint-${type}`;
+                      const labelText = isInfill ? 'INF' : (isExfil ? 'EXF' : i + 1);
                       return `
                         <circle class="waypoint ${colorClass}" cx="${px.x}" cy="${px.y}" r="10" data-step="${i + 1}" data-name="${wp.name}" data-coords="(${wp.coordinates.x.toFixed(1)}, ${wp.coordinates.y.toFixed(1)}${wp.coordinates.z !== undefined ? `, ${wp.coordinates.z.toFixed(1)}` : ''})" />
-                        <text class="waypoint-label" x="${px.x}" y="${px.y - 18}" fill="#ffffff" stroke="#000000" stroke-width="0.5">${label}</text>`;
+                        <text class="waypoint-label" x="${px.x}" y="${px.y - 18}" fill="#ffffff" stroke="#000000" stroke-width="0.5">${labelText}</text>`;
                     }).join('\n                    ')}
+                    
+                    <!-- Early spawn interception arrows -->
+                    ${(() => {
+                      const firstWaypoint = lootRun.waypoints[0];
+                      if (!firstWaypoint?.playerInterceptionRisk) return '';
+                      
+                      const risk = firstWaypoint.playerInterceptionRisk;
+                      let arrowsHtml = '';
+                      
+                      // Get user's spawn coordinates to exclude it
+                      const userSpawnCoords = firstWaypoint.coordinates;
+                      
+                      // Early spawn arrows (from waypointSpawnAnalysis)
+                      if (risk.waypointSpawnAnalysis && risk.waypointSpawnAnalysis.length > 0) {
+                        for (const analysis of risk.waypointSpawnAnalysis) {
+                          // Skip if this is the user's spawn point
+                          const spawnCoords = analysis.closestSpawn.coordinates;
+                          const distToUserSpawn = Math.sqrt(
+                            Math.pow(spawnCoords.x - userSpawnCoords.x, 2) + 
+                            Math.pow(spawnCoords.y - userSpawnCoords.y, 2)
+                          );
+                          if (distToUserSpawn < 10) continue; // Skip user's own spawn
+                          
+                          const waypointPixel = coordToPixel(lootRun.waypoints[analysis.waypointIndex].coordinates);
+                          const spawnPixel = coordToPixel(spawnCoords);
+                          
+                          // Calculate arrow direction
+                          const dx = waypointPixel.x - spawnPixel.x;
+                          const dy = waypointPixel.y - spawnPixel.y;
+                          const angle = Math.atan2(dy, dx);
+                          
+                          // Offset arrow start/end to avoid overlapping with waypoint circles
+                          const waypointRadius = 10;
+                          const spawnRadius = 8;
+                          const offsetStart = spawnRadius + 5;
+                          const offsetEnd = waypointRadius + 5;
+                          
+                          const startX = spawnPixel.x + Math.cos(angle) * offsetStart;
+                          const startY = spawnPixel.y + Math.sin(angle) * offsetStart;
+                          const endX = waypointPixel.x - Math.cos(angle) * offsetEnd;
+                          const endY = waypointPixel.y - Math.sin(angle) * offsetEnd;
+                          
+                          // Calculate midpoint for time label
+                          const midX = (startX + endX) / 2;
+                          const midY = (startY + endY) / 2;
+                          
+                          // Format time
+                          const theirMin = Math.floor(analysis.closestSpawn.theirArrivalTime / 60);
+                          const theirSec = Math.round(analysis.closestSpawn.theirArrivalTime % 60);
+                          const timeText = `${theirMin}m ${theirSec}s`;
+                          
+                          // Color based on interception risk
+                          const arrowColor = analysis.closestSpawn.canBeatYou ? '#ff0000' : '#ff6666';
+                          const strokeWidth = analysis.closestSpawn.canBeatYou ? 2.5 : 2;
+                          const markerId = analysis.closestSpawn.canBeatYou ? 'arrowhead-red' : 'arrowhead-red-light';
+                          
+                          arrowsHtml += `
+                            <line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" 
+                                  stroke="${arrowColor}" 
+                                  stroke-width="${strokeWidth}" 
+                                  stroke-opacity="0.7"
+                                  marker-end="url(#${markerId})" />
+                            <circle cx="${spawnPixel.x}" cy="${spawnPixel.y}" r="6" fill="${arrowColor}" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                            <text x="${midX}" y="${midY - 8}" 
+                                  fill="${arrowColor}" 
+                                  font-size="11" 
+                                  font-weight="bold"
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">${timeText}</text>
+                            <text x="${spawnPixel.x}" y="${spawnPixel.y - 12}" 
+                                  fill="${arrowColor}" 
+                                  font-size="9" 
+                                  text-anchor="middle"
+                                  stroke="#000000" 
+                                  stroke-width="0.3"
+                                  style="pointer-events: none;">${analysis.closestSpawn.spawnName || 'Spawn'}</text>`;
+                        }
+                      }
+                      
+                      return arrowsHtml;
+                    })()}
                 </svg>
             </div>
             <p style="margin-top: 10px; font-size: 12px; color: #888;">
-                💡 Reference: Map bounds (${bounds.minX}, ${bounds.minY}) to (${bounds.maxX}, ${bounds.maxY})
-                ${referencePoints.length > 0 ? ` | Calibrated using ${referencePoints.length} spawn point${referencePoints.length > 1 ? 's' : ''}` : ''}
+                💡 Reference: Map bounds (${bounds.minX.toFixed(0)}, ${bounds.minY.toFixed(0)}) to (${bounds.maxX.toFixed(0)}, ${bounds.maxY.toFixed(0)}) · Image ${mapImageInfo.width}×${mapImageInfo.height}px
+                ${bounds.dynamic ? ' · Derived from live map data' : ' · Using fallback range'}
             </p>
             <p style="margin-top: 5px; font-size: 11px; color: #666;">
-                ${referencePoints.length >= 2 ? '✅ Using multi-point calibration for better accuracy' : referencePoints.length === 1 ? '⚠️ Using single-point calibration - accuracy may vary' : '⚠️ Using estimated bounds - spawn points not available'}
+                ${referencePoints.length >= 2
+                  ? `✅ Using ${referencePoints.length} spawn-based calibration point${referencePoints.length > 1 ? 's' : ''}`
+                  : referencePoints.length === 1
+                    ? '⚠️ Only one spawn reference available — overlay accuracy may vary'
+                    : '⚠️ No spawn references available — falling back to normalized bounds'}
+                ${mapImageInfo.exists ? '' : ' · ⚠️ Placeholder image in use'}
             </p>
         </div>
 
@@ -732,6 +1115,14 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
             <div class="legend-item">
                 <div class="legend-color" style="background: #ff00ff;"></div>
                 <span>Raider Key</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color cluster"></div>
+                <span>General loot cluster (look in boxed area)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff0000; border-color: #ff0000;"></div>
+                <span>Early spawn interception (bright red = can intercept, light red = safe) - shows arrival time</span>
             </div>
         </div>
 
@@ -769,6 +1160,7 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
                       const waitSec = waitTime > 0 ? Math.round(waitTime % 60) : 0;
                       const waitStr = waitTime > 0 ? `${waitMin}m ${waitSec}s` : '-';
                       
+                      // Calculate safe window: time from arrival (after wait) until next player could arrive
                       const safeWindow = wp.safeWindow;
                       let safeWindowStr = '-';
                       let safeWindowColor = '#e0e0e0';
@@ -776,6 +1168,7 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
                         const safeMin = Math.floor(safeWindow / 60);
                         const safeSec = Math.round(safeWindow % 60);
                         safeWindowStr = `${safeMin}m ${safeSec}s`;
+                        // Color code: green if > 60s, yellow if 30-60s, red if < 30s
                         if (safeWindow > 60) {
                           safeWindowColor = '#00ff00';
                         } else if (safeWindow > 30) {
@@ -797,6 +1190,7 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
                         }
                       }
                       
+                      // Skip spawn waypoint in schedule (it's at 0:00)
                       if (wp.type === 'spawn') {
                         return `
                     <tr style="border-bottom: 1px solid #3a3a3a;">
@@ -832,18 +1226,75 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
         <div class="waypoints-list">
             <h3>Step-by-Step Instructions</h3>
             ${lootRun.waypoints.map((wp, i) => {
+              // Check if this waypoint is part of a cluster
+              const clusterIndex = clusterAssignments.get(i);
+              const isInCluster = clusterIndex !== undefined;
+              
+              // If in cluster, only show once (as the first member)
+              if (isInCluster) {
+                const clusterBox = clusterBoxes[clusterIndex];
+                const isFirstInCluster = clusterBox.indices[0] === i;
+                if (!isFirstInCluster) {
+                  // Skip other members of cluster - they're shown in the cluster summary
+                  return '';
+                }
+                
+                // Show cluster as single waypoint with all loot listed
+                const clusterMembers = clusterBox.indices.map(idx => lootRun.waypoints[idx]);
+                const clusterLootNames = clusterMembers
+                  .filter(m => m && ['cache', 'arc'].includes(m.type || ''))
+                  .map(m => m.name)
+                  .filter(Boolean);
+                
+                const icon = '📦';
+                const coords = wp.coordinates;
+                const gridCell = coordToGridCell(coords);
+                return `
+            <div class="waypoint-item">
+                <h4>${icon} Step ${i + 1}: General Loot Area (${clusterBox.count} locations)</h4>
+                <p><strong>Location:</strong> ${wp.name} (and ${clusterBox.count - 1} nearby)</p>
+                <p><strong>Coordinates:</strong> (${coords.x.toFixed(1)}, ${coords.y.toFixed(1)}${coords.z !== undefined ? `, ${coords.z.toFixed(1)}` : ''})</p>
+                <p><strong>Grid:</strong> ${gridCell}</p>
+                <p><strong>Look for these loot locations in this area:</strong></p>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    ${clusterLootNames.map(name => `<li>${name}</li>`).join('\n                    ')}
+                </ul>
+                ${wp.distanceToExtraction !== undefined ? `<p><strong>Distance to extraction:</strong> ${wp.distanceToExtraction.toFixed(1)} units</p>` : ''}
+                ${wp.dangerLevel && wp.dangerLevel !== 'low' ? `<p><strong>⚠️ Danger:</strong> ${wp.dangerLevel.toUpperCase()}</p>` : ''}
+            </div>`;
+              }
+              
+              // Regular waypoint (not in cluster)
               const icon = wp.type === 'spawn' ? '🚀' : wp.type === 'extraction' ? '✈️' : wp.type === 'raider-key' ? '🔑' : '📦';
               const coords = wp.coordinates;
+              const gridCell = coordToGridCell(coords);
               return `
             <div class="waypoint-item">
                 <h4>${icon} Step ${i + 1}: ${wp.instruction || wp.name}</h4>
                 <p><strong>Location:</strong> ${wp.name}</p>
                 <p><strong>Coordinates:</strong> (${coords.x.toFixed(1)}, ${coords.y.toFixed(1)}${coords.z !== undefined ? `, ${coords.z.toFixed(1)}` : ''})</p>
+                <p><strong>Grid:</strong> ${gridCell}</p>
                 ${wp.distanceToExtraction !== undefined ? `<p><strong>Distance to extraction:</strong> ${wp.distanceToExtraction.toFixed(1)} units</p>` : ''}
                 ${wp.dangerLevel && wp.dangerLevel !== 'low' ? `<p><strong>⚠️ Danger:</strong> ${wp.dangerLevel.toUpperCase()}</p>` : ''}
             </div>`;
-            }).join('\n            ')}
+            }).filter(html => html.trim()).join('\n            ')}
         </div>
+
+        ${clusterBoxes.length > 0 ? `
+        <div class="cluster-summary">
+            <h3>📦 General Loot Areas (Count as 1 waypoint each)</h3>
+            <p style="color: #888; font-size: 13px; margin-bottom: 10px;">These areas contain multiple loot locations grouped together for efficiency.</p>
+            <ul>
+                ${clusterBoxes.map(box => {
+                  const clusterMembers = box.indices.map(idx => lootRun.waypoints[idx]);
+                  const lootNames = clusterMembers
+                    .filter(m => m && ['cache', 'arc'].includes(m.type || ''))
+                    .map(m => m.name)
+                    .filter(Boolean);
+                  return `<li><strong>${box.label}</strong> · Look for: ${lootNames.join(', ')}</li>`;
+                }).join('\n                ')}
+            </ul>
+        </div>` : ''}
     </div>
 
     <script>
