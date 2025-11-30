@@ -65,29 +65,79 @@ Available maps: dam, spaceport, buried-city, blue-gate
   let useCoordinates = false;
 
   // Helper function to find location by name (searches waypoints and POIs)
+  // If a landmark is found (not a spawn), finds nearest spawn point to that landmark
   async function findLocationByName(mapName, locationName) {
     try {
       const client = createArcRaidersClient();
       const mapData = await client.getMapData(mapName);
       const searchLower = locationName.toLowerCase();
       
-      // Search in waypoints first (preferred)
+      // Search in waypoints first (preferred) - these are spawns/extractions
       const waypointMatch = (mapData.waypoints || []).find(wp => 
         wp.name && wp.name.toLowerCase().includes(searchLower) && wp.coordinates
       );
-      if (waypointMatch) return waypointMatch.coordinates;
+      if (waypointMatch) {
+        // If it's a spawn point, return it directly
+        if (waypointMatch.type === 'spawn') {
+          return waypointMatch.coordinates;
+        }
+        // If it's an extraction or other waypoint, find nearest spawn
+        if (waypointMatch.coordinates && spawnPoints.length > 0) {
+          const nearestSpawn = findNearestSpawn(waypointMatch.coordinates, spawnPoints);
+          if (nearestSpawn) {
+            console.log(`📍 Found landmark "${locationName}" - using nearest spawn: ${nearestSpawn.name}`);
+            return nearestSpawn.coordinates;
+          }
+        }
+        return waypointMatch.coordinates;
+      }
       
-      // Fallback to POIs
+      // Search in POIs (landmarks, caches, etc.)
       const poiMatch = (mapData.pois || []).find(poi => 
         poi.name && poi.name.toLowerCase().includes(searchLower) && poi.coordinates
       );
-      if (poiMatch) return poiMatch.coordinates;
+      if (poiMatch) {
+        // Found a landmark/POI - find nearest spawn point to it
+        if (poiMatch.coordinates && spawnPoints.length > 0) {
+          const nearestSpawn = findNearestSpawn(poiMatch.coordinates, spawnPoints);
+          if (nearestSpawn) {
+            console.log(`📍 Found landmark "${locationName}" - using nearest spawn: ${nearestSpawn.name}`);
+            return nearestSpawn.coordinates;
+          }
+        }
+        // Fallback to the landmark coordinates if no spawn found
+        return poiMatch.coordinates;
+      }
       
       return null;
     } catch (error) {
       console.error('Error searching for location:', error.message);
       return null;
     }
+  }
+  
+  // Helper function to find nearest spawn point to given coordinates
+  function findNearestSpawn(targetCoords, spawnPoints) {
+    if (!targetCoords || spawnPoints.length === 0) return null;
+    
+    let nearest = null;
+    let minDistance = Infinity;
+    
+    for (const spawn of spawnPoints) {
+      if (!spawn.coordinates) continue;
+      
+      const dx = spawn.coordinates.x - targetCoords.x;
+      const dy = spawn.coordinates.y - targetCoords.y;
+      const dz = (spawn.coordinates.z || 0) - (targetCoords.z || 0);
+      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = spawn;
+      }
+    }
+    
+    return nearest;
   }
 
   // Fetch map data early to get spawn points for display and calibration
