@@ -17,14 +17,34 @@ if "%map%"=="" (
     set map=dam
 )
 
-set /p coords="Enter your spawn coordinates (x y) or press Enter to use saved spawn: "
+echo.
+echo Fetching available locations for %map%...
+echo.
+
+REM First, show all locations by running with no coordinates (this will display locations)
+node run-loot.cjs %map% 2>nul | findstr /C:"SPAWN POINTS" /C:"EXTRACTION POINTS" /C:"LOOT CACHES" /C:"Available locations" /C:"spawn point" /C:"extraction" /C:"cache" /C:"Using first" /C:"Using saved" >nul
+if errorlevel 1 (
+    echo (Locations will be shown when generating path)
+)
+
+echo.
+set /p coords="Enter your spawn coordinates (x y) or landmark name, or press Enter to use first spawn: "
 
 if "%coords%"=="" (
-    echo Using saved spawn coordinates...
+    echo.
+    echo Using first spawn point...
     node run-loot.cjs %map%
 ) else (
-    for /f "tokens=1,2" %%a in ("%coords%") do (
-        node run-loot.cjs %map% %%a %%b
+    REM Check if it's coordinates (two numbers) or a landmark name
+    echo %coords% | findstr /R "^[0-9][0-9]* [0-9][0-9]*" >nul
+    if errorlevel 1 (
+        REM It's a landmark name (or invalid), pass as single argument
+        node run-loot.cjs %map% "%coords%"
+    ) else (
+        REM It's coordinates, split and pass separately
+        for /f "tokens=1,2" %%a in ("%coords%") do (
+            node run-loot.cjs %map% %%a %%b
+        )
     )
 )
 

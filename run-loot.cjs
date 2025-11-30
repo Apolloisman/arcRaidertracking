@@ -211,6 +211,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
     }
   } else {
     // No coordinates provided - show all locations and use first spawn
+    console.log('\n📋 Showing all available locations for this map:\n');
     displayAllLocations();
     if (spawnPoints.length > 0) {
       const firstSpawn = spawnPoints[0];
