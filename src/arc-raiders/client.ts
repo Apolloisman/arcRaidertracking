@@ -434,12 +434,12 @@ export class ArcRaidersClient {
         const searchRadius = 200; // Search within 200 units for nearby landmarks
         
         // Search in POIs for nearby landmarks
+        // Import calculateDistance logic inline (Euclidean distance in 2D)
         for (const poi of pois) {
           if (poi.coordinates && poi.name && poi.type !== 'cache') {
-            const distance = Math.sqrt(
-              Math.pow(poi.coordinates.x - spawnCoords.x, 2) +
-              Math.pow(poi.coordinates.y - spawnCoords.y, 2)
-            );
+            const dx = poi.coordinates.x - spawnCoords.x;
+            const dy = poi.coordinates.y - spawnCoords.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance <= searchRadius && (!nearestLandmark || distance < nearestLandmark.distance)) {
               nearestLandmark = { name: poi.name, distance };
