@@ -12,3 +12,8 @@ test.ts
 *.test.ts
 *.spec.ts
 test-output/
+.cache/
+*.html
+test-api.js
+generate-map-overlay.js
+map-*.png

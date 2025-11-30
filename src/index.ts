@@ -65,3 +65,14 @@ export type { Stats } from './analytics/stats';
 
 export { BrowserArcRaidersClient, createBrowserClient } from './arc-raiders/browser-client';
 export type { BrowserClientConfig } from './arc-raiders/browser-client';
+
+export {
+  generateLootRun,
+  generateLootRunsForAllMaps,
+  formatLootRunPath,
+} from './pathfinding/loot-run';
+export type {
+  LootRunPath,
+  PathWaypoint,
+  LootRunOptions,
+} from './pathfinding/loot-run';

@@ -1,5 +1,6 @@
 import { ApiClient, createApiClient } from '../client';
 import { Cache } from '../cache';
+import { PersistentCache } from '../persistent-cache';
 import type {
   ArcRaidersItem,
   Weapon,
@@ -11,7 +12,17 @@ import type {
   TraderItem,
   ArcRaidersFilter,
   ArcRaidersApiResponse,
+  PointOfInterest,
+  Waypoint,
+  Coordinates,
 } from './types';
+import {
+  generateLootRun,
+  generateLootRunsForAllMaps,
+  formatLootRunPath,
+  type LootRunPath,
+  type LootRunOptions,
+} from '../pathfinding/loot-run';
 
 export interface ArcRaidersClientConfig {
   baseURL?: string;
@@ -19,11 +30,13 @@ export interface ArcRaidersClientConfig {
   timeout?: number;
   cacheEnabled?: boolean;
   cacheTTL?: number;
+  usePersistentCache?: boolean; // Use file-based persistent cache (default: true)
+  cacheFilePath?: string; // Custom cache file path
 }
 
 export class ArcRaidersClient {
   private readonly client: ApiClient;
-  private readonly cache: Cache;
+  private readonly cache: Cache | PersistentCache;
   protected readonly baseURL = 'https://metaforge.app/api/arc-raiders';
   private readonly defaultTimeout = 10000;
   private readonly cacheEnabled: boolean;
@@ -38,7 +51,16 @@ export class ArcRaidersClient {
       timeout: config?.timeout || this.defaultTimeout,
     });
     this.cacheEnabled = config?.cacheEnabled !== false;
-    this.cache = new Cache(config?.cacheTTL || 5 * 60 * 1000);
+    // Default to 24 hours (once per day) unless specified
+    const cacheTTL = config?.cacheTTL || 24 * 60 * 60 * 1000;
+    
+    // Use persistent cache by default (saves to disk, persists across runs)
+    const usePersistentCache = config?.usePersistentCache !== false;
+    if (usePersistentCache) {
+      this.cache = new PersistentCache(cacheTTL, config?.cacheFilePath);
+    } else {
+      this.cache = new Cache(cacheTTL);
+    }
   }
 
   private getCacheKey(endpoint: string, params?: ArcRaidersFilter | Record<string, any>): string {
@@ -307,6 +329,17 @@ export class ArcRaidersClient {
   }
 
   async getMapData(mapName: string): Promise<MapData> {
+    const normalizedMapName = mapName.toLowerCase().replace(/\s+/g, '-');
+    const cacheKey = this.getCacheKey('/game-map-data', { tableID: 'arc_map_data', mapID: normalizedMapName });
+    
+    // Check cache first
+    if (this.cacheEnabled) {
+      const cached = this.cache.get<MapData>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+    
     const mapClient = createApiClient({
       baseURL: 'https://metaforge.app/api',
       defaultHeaders: {
@@ -315,11 +348,89 @@ export class ArcRaidersClient {
       timeout: this.client['defaultTimeout'] || this.defaultTimeout,
     });
     
-    const normalizedMapName = mapName.toLowerCase().replace(/\s+/g, '-');
-    const response = await mapClient.get<MapData>('/game-map-data', {
-      params: { map: normalizedMapName },
+    // API requires both tableID and mapID parameters
+    // Response format: { allData: Array<{lat, lng, category, subcategory, ...}> }
+    const response = await mapClient.get<{ allData: Array<{
+      id: string;
+      lat: number;
+      lng: number;
+      zlayers?: number;
+      mapID: string;
+      category: string;
+      subcategory: string;
+      instanceName?: string | null;
+    }> }>('/game-map-data', {
+      params: { 
+        tableID: 'arc_map_data',
+        mapID: normalizedMapName 
+      },
     });
-    return response.data;
+    
+    // Transform API response to MapData format
+    const apiData = response.data.allData || [];
+    
+    // Map categories to POI types
+    const categoryToPOIType: Record<string, 'cache' | 'spawn' | 'extraction' | 'objective' | 'vendor' | 'other'> = {
+      'containers': 'cache',
+      'spawn': 'spawn',
+      'extraction': 'extraction',
+      'objective': 'objective',
+      'vendor': 'vendor',
+    };
+    
+    // Convert API data to POIs and waypoints
+    const pois: PointOfInterest[] = [];
+    const waypoints: Waypoint[] = [];
+    
+    apiData.forEach(item => {
+      let poiType = categoryToPOIType[item.category] || 'other';
+      const coords: Coordinates = {
+        x: item.lng, // API uses lng for x
+        y: item.lat, // API uses lat for y
+        z: item.zlayers !== undefined && item.zlayers !== 2147483647 ? item.zlayers : undefined,
+      };
+      
+      // Check if this is a player spawn (can be in instanceName or subcategory)
+      const instanceName = (item.instanceName || '').toLowerCase();
+      const subcategory = (item.subcategory || '').toLowerCase();
+      const isPlayerSpawn = instanceName.includes('spawn') || 
+                           subcategory.includes('spawn') ||
+                           item.category === 'spawn';
+      
+      if (isPlayerSpawn) {
+        poiType = 'spawn';
+      }
+      
+      if (poiType === 'spawn' || poiType === 'extraction') {
+        waypoints.push({
+          id: item.id,
+          name: item.instanceName || item.subcategory || item.category,
+          coordinates: coords,
+          type: poiType,
+        });
+      } else {
+        pois.push({
+          id: item.id,
+          name: item.instanceName || item.subcategory || item.category,
+          type: poiType,
+          coordinates: coords,
+        });
+      }
+    });
+    
+    const mapData: MapData = {
+      id: normalizedMapName,
+      name: normalizedMapName,
+      waypoints,
+      pois,
+    };
+    
+    // Cache the result
+    if (this.cacheEnabled) {
+      this.cache.set(cacheKey, mapData);
+    }
+    
+    return mapData;
   }
 
   async getMaps(): Promise<MapData[]> {
@@ -387,6 +498,65 @@ export class ArcRaidersClient {
 
   async getAllARCs(filter?: Omit<ArcRaidersFilter, 'page' | 'pageSize'>): Promise<ArcMission[]> {
     return this.getARCs(filter);
+  }
+
+  /**
+   * Generate a loot run path for a specific map
+   * @param mapName - Name of the map (e.g., 'dam', 'spaceport', 'buried-city', 'blue-gate')
+   * @param options - Options for path generation
+   * @returns A loot run path with optimized waypoints, or null if no path can be generated
+   */
+  async generateLootRunForMap(
+    mapName: string,
+    options: LootRunOptions = {}
+  ): Promise<LootRunPath | null> {
+    const mapData = await this.getMapData(mapName);
+    
+    // Fetch ARCs for path inclusion and danger assessment
+    let arcs: ArcMission[] = [];
+    try {
+      arcs = await this.getARCs();
+      // Filter ARCs that might be on this map (by location name matching)
+      arcs = arcs.filter(arc => {
+        const arcLocation = arc.location?.toLowerCase() || '';
+        const mapNameLower = mapName.toLowerCase();
+        return arcLocation.includes(mapNameLower) || 
+               mapNameLower.includes(arcLocation) ||
+               arcLocation === ''; // Include ARCs with no location as they might be anywhere
+      });
+    } catch (error) {
+      // If ARC fetching fails, continue without them
+      console.warn('Could not fetch ARCs:', error);
+    }
+    
+    // Create enhanced options with ARCs
+    const enhancedOptions = { ...options };
+    
+    return generateLootRun(mapData, enhancedOptions, arcs);
+  }
+
+  /**
+   * Generate loot run paths for all available maps
+   * @param options - Options for path generation
+   * @returns Array of loot run paths for all maps
+   */
+  async generateLootRunsForAllMaps(
+    options: LootRunOptions = {}
+  ): Promise<LootRunPath[]> {
+    return generateLootRunsForAllMaps(
+      () => this.getMaps(), 
+      options,
+      options.avoidDangerousAreas ? () => this.getARCs() : undefined
+    );
+  }
+
+  /**
+   * Format a loot run path as a readable string
+   * @param path - The loot run path to format
+   * @returns Formatted string representation of the path
+   */
+  formatLootRunPath(path: LootRunPath): string {
+    return formatLootRunPath(path);
   }
 }
 

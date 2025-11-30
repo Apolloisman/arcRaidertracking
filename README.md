@@ -67,6 +67,7 @@ console.log(items.data);
 -  CLI tool for command-line usage
 -  Data export (JSON, CSV)
 -  Analytics and statistics helpers
+-  **Loot run pathfinding** - Generate optimized paths for efficient loot collection on each map
 
 ## Basic Usage
 
@@ -90,6 +91,40 @@ const weapons = await client.getWeapons({ rarity: 'legendary', page: 1, pageSize
 const quests = await client.getQuests({ difficulty: 'hard', page: 1, pageSize: 20 });
 const maps = await client.getMaps();
 const traders = await client.getTraders();
+```
+
+### Generate Loot Run Paths
+
+Generate optimized paths for efficient loot collection on each map:
+
+```typescript
+// Generate a loot run for a specific map
+const lootRun = await client.generateLootRunForMap('dam', {
+  startAtSpawn: true,
+  endAtExtraction: true,
+  maxCaches: 10,
+  algorithm: 'nearest-neighbor',
+});
+
+if (lootRun) {
+  console.log(client.formatLootRunPath(lootRun));
+  // Output: Formatted path with waypoints, distances, and estimated time
+}
+
+// Generate loot runs for all maps
+const allLootRuns = await client.generateLootRunsForAllMaps({
+  startAtSpawn: true,
+  endAtExtraction: true,
+  maxCaches: 15,
+});
+
+// Access path details
+for (const path of allLootRuns) {
+  console.log(`${path.mapName}: ${path.waypoints.length} waypoints`);
+  path.waypoints.forEach(wp => {
+    console.log(`  - ${wp.name} (${wp.type}) at (${wp.coordinates.x}, ${wp.coordinates.y})`);
+  });
+}
 ```
 
 
