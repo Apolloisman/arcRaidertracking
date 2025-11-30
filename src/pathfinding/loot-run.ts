@@ -635,8 +635,10 @@ function generateExtractionAwarePath(
   }
 
   // Phase 2: Loot caches and kill ARCs near extraction (prioritize these)
+  // Total path: spawn (1) + loot locations (maxCaches) + extraction (1) = maxCaches + 2
+  // We want exactly maxCaches loot locations between spawn and extraction
   let targetsVisited = 0; // Count both caches and ARCs
-  const maxTargets = maxCaches + 1; // Allow one extra target (can be an ARC)
+  const maxTargets = maxCaches; // Exactly maxCaches loot locations (can include ARCs for quests)
   
   while (targetsVisited < maxTargets) {
     // Check if we should head to extraction soon
