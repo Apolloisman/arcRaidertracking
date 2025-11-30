@@ -104,22 +104,61 @@ Available maps: dam, spaceport, buried-city, blue-gate
     console.error('   This might be a network issue. Check your internet connection.');
   }
 
-  // Helper function to display spawn points
-  function displaySpawnPoints() {
-    if (spawnPoints.length === 0) {
-      console.log('   No spawn points available for this map.');
+  // Helper function to display all locations on the map
+  function displayAllLocations() {
+    if (!mapData) {
+      console.log('   Map data not available.');
       return;
     }
-    console.log(`\n📍 Available spawn points for ${mapName}:`);
-    console.log('─'.repeat(60));
-    spawnPoints.forEach((spawn, i) => {
-      const coords = spawn.coordinates;
-      const name = spawn.name || 'player_spawn';
-      const zStr = coords.z !== undefined ? `, ${coords.z.toFixed(1)}` : '';
-      console.log(`   ${(i + 1).toString().padStart(2)}. ${name.padEnd(25)} (${coords.x.toFixed(1)}, ${coords.y.toFixed(1)}${zStr})`);
-    });
-    console.log('─'.repeat(60));
+    
+    console.log(`\n📍 All available locations on ${mapName}:`);
+    console.log('─'.repeat(70));
+    
+    // Show spawn points
+    if (spawnPoints.length > 0) {
+      console.log('\n   🟢 SPAWN POINTS:');
+      spawnPoints.forEach((spawn, i) => {
+        const coords = spawn.coordinates;
+        const name = spawn.name || 'player_spawn';
+        const zStr = coords.z !== undefined ? `, ${coords.z.toFixed(1)}` : '';
+        console.log(`      ${(i + 1).toString().padStart(2)}. ${name.padEnd(30)} (${coords.x.toFixed(1)}, ${coords.y.toFixed(1)}${zStr})`);
+      });
+    }
+    
+    // Show extraction points
+    const extractionPoints = (mapData.waypoints || []).filter(wp => wp.type === 'extraction' && wp.coordinates);
+    if (extractionPoints.length > 0) {
+      console.log('\n   🔴 EXTRACTION POINTS:');
+      extractionPoints.forEach((ext, i) => {
+        const coords = ext.coordinates;
+        const name = ext.name || 'extraction';
+        const zStr = coords.z !== undefined ? `, ${coords.z.toFixed(1)}` : '';
+        console.log(`      ${(i + 1).toString().padStart(2)}. ${name.padEnd(30)} (${coords.x.toFixed(1)}, ${coords.y.toFixed(1)}${zStr})`);
+      });
+    }
+    
+    // Show some cache locations (first 10 as examples)
+    const cachePOIs = (mapData.pois || []).filter(poi => poi.type === 'cache' && poi.coordinates);
+    if (cachePOIs.length > 0) {
+      console.log('\n   💰 LOOT CACHES (showing first 10):');
+      cachePOIs.slice(0, 10).forEach((cache, i) => {
+        const coords = cache.coordinates;
+        const name = cache.name || 'cache';
+        const zStr = coords.z !== undefined ? `, ${coords.z.toFixed(1)}` : '';
+        console.log(`      ${(i + 1).toString().padStart(2)}. ${name.padEnd(30)} (${coords.x.toFixed(1)}, ${coords.y.toFixed(1)}${zStr})`);
+      });
+      if (cachePOIs.length > 10) {
+        console.log(`      ... and ${cachePOIs.length - 10} more cache locations`);
+      }
+    }
+    
+    console.log('─'.repeat(70));
     console.log('💡 You can use these coordinates or search by landmark name\n');
+  }
+  
+  // Keep old function name for backward compatibility
+  function displaySpawnPoints() {
+    displayAllLocations();
   }
 
   if (args.length >= 2) {
@@ -136,7 +175,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
       if (!isNaN(x) && !isNaN(y)) {
         if (z !== undefined && isNaN(z)) {
           console.error('❌ Error: Z coordinate must be a number');
-          displaySpawnPoints();
+          displayAllLocations();
           process.exit(1);
         }
         useCoordinates = true;
@@ -151,7 +190,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
           console.log(`✅ Found: ${locationArg} at (${x.toFixed(2)}, ${y.toFixed(2)}${z !== undefined ? `, ${z.toFixed(2)}` : ''})`);
         } else {
           console.error(`❌ Error: Could not find location "${locationArg}" on map "${mapName}"`);
-          displaySpawnPoints();
+          displayAllLocations();
           process.exit(1);
         }
       }
@@ -166,14 +205,14 @@ Available maps: dam, spaceport, buried-city, blue-gate
         console.log(`✅ Found: ${locationArg} at (${x.toFixed(2)}, ${y.toFixed(2)}${z !== undefined ? `, ${z.toFixed(2)}` : ''})`);
       } else {
         console.error(`❌ Error: Could not find location "${locationArg}" on map "${mapName}"`);
-        displaySpawnPoints();
+        displayAllLocations();
         process.exit(1);
       }
     }
   } else {
-    // No coordinates provided - show spawn points and use first one
+    // No coordinates provided - show all locations and use first spawn
+    displayAllLocations();
     if (spawnPoints.length > 0) {
-      displaySpawnPoints();
       const firstSpawn = spawnPoints[0];
       x = firstSpawn.coordinates.x;
       y = firstSpawn.coordinates.y;
@@ -215,7 +254,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
         ...(z !== undefined && { z }),
       } : undefined,
       endAtExtraction: true,
-      maxCaches: 6, // 6 loot locations (can include ARCs for quests)
+      maxCaches: 7, // 7 loot locations (spawn + 7 loot + exit = 9 total waypoints)
       avoidDangerousAreas: true,
       algorithm: 'extraction-aware',
       maxTimeBeforeExtraction: 300, // 5 minutes
