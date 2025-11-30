@@ -255,7 +255,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
         ...(z !== undefined && { z }),
       } : undefined,
       endAtExtraction: true,
-      maxCaches: 7, // 7 loot locations (spawn + 7 loot + exit = 9 total waypoints)
+      maxCaches: 6, // 6 loot locations (spawn + 6 loot + exit = 8 total waypoints, extraction is 8th)
       avoidDangerousAreas: true,
       algorithm: 'extraction-aware',
       maxTimeBeforeExtraction: 300, // 5 minutes

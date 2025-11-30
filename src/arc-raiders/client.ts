@@ -425,10 +425,44 @@ export class ArcRaidersClient {
       }
     });
     
+    // Name spawn points based on nearby landmarks
+    const namedWaypoints = waypoints.map(wp => {
+      if (wp.type === 'spawn' && wp.coordinates) {
+        // Find nearest landmark/POI to give spawn a meaningful name
+        const spawnCoords = wp.coordinates;
+        let nearestLandmark: { name: string; distance: number } | null = null;
+        const searchRadius = 200; // Search within 200 units for nearby landmarks
+        
+        // Search in POIs for nearby landmarks
+        for (const poi of pois) {
+          if (poi.coordinates && poi.name && poi.type !== 'cache') {
+            const distance = Math.sqrt(
+              Math.pow(poi.coordinates.x - spawnCoords.x, 2) +
+              Math.pow(poi.coordinates.y - spawnCoords.y, 2)
+            );
+            
+            if (distance <= searchRadius && (!nearestLandmark || distance < nearestLandmark.distance)) {
+              nearestLandmark = { name: poi.name, distance };
+            }
+          }
+        }
+        
+        // If we found a nearby landmark, use it to name the spawn
+        if (nearestLandmark && nearestLandmark.distance < 150) {
+          const baseName = wp.name || 'player_spawn';
+          // Only rename if current name is generic
+          if (baseName.toLowerCase().includes('spawn') || baseName.toLowerCase() === 'player_spawn') {
+            wp.name = `Near ${nearestLandmark.name}`;
+          }
+        }
+      }
+      return wp;
+    });
+    
     const mapData: MapData = {
       id: normalizedMapName,
       name: normalizedMapName,
-      waypoints,
+      waypoints: namedWaypoints,
       pois,
     };
     

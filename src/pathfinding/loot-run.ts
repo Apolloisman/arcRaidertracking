@@ -635,10 +635,10 @@ function generateExtractionAwarePath(
   }
 
   // Phase 2: Loot caches and kill ARCs near extraction (prioritize these)
-  // Total path: spawn (1) + loot locations (maxCaches) + extraction (1) = maxCaches + 2
-  // We want exactly maxCaches loot locations between spawn and extraction
+  // Total path: spawn (1) + loot locations (6) + extraction (1) = 8 total waypoints
+  // We want exactly 6 loot locations between spawn and extraction (8th point is extraction)
   let targetsVisited = 0; // Count both caches and ARCs
-  const maxTargets = maxCaches; // Exactly maxCaches loot locations (can include ARCs for quests)
+  const maxTargets = 6; // Exactly 6 loot locations (8th point will be extraction)
   
   while (targetsVisited < maxTargets) {
     // Check if we should head to extraction soon
@@ -757,8 +757,25 @@ function generateExtractionAwarePath(
     }
   }
 
-  // End at extraction
+  // End at extraction (8th waypoint: spawn=1, loot=2-7, extraction=8)
+  // Ensure we have exactly 6 loot locations, then extraction as 8th point
   if (options.endAtExtraction && primaryExtraction) {
+    // If we have more than 6 loot locations, trim to exactly 6
+    const spawnCount = path.filter(wp => wp.type === 'spawn').length;
+    const lootCount = path.filter(wp => wp.type === 'cache' || wp.type === 'arc').length;
+    
+    if (lootCount > 6) {
+      // Keep spawn and first 6 loot locations, remove extras
+      const spawnWaypoint = path.find(wp => wp.type === 'spawn');
+      const lootWaypoints = path.filter(wp => wp.type === 'cache' || wp.type === 'arc').slice(0, 6);
+      path.length = 0;
+      if (spawnWaypoint) path.push(spawnWaypoint);
+      path.push(...lootWaypoints);
+      // Recalculate orders
+      path.forEach((wp, i) => { wp.order = i; });
+      currentOrder = path.length;
+    }
+    
     const extraction = extractionPoints.find(ep => 
       ep.coordinates && 
       calculateDistance(ep.coordinates, primaryExtraction) < 1
@@ -768,12 +785,13 @@ function generateExtractionAwarePath(
       const extractionType = primaryExtractionIsRaiderKey ? 'raider-key' : 'extraction';
       const extractionName = extraction.name + (primaryExtractionIsRaiderKey ? ' (Raider Key)' : '');
       
+      // Ensure extraction is exactly the 8th waypoint (order 7, index 7)
       path.push({
         id: extraction.id,
         name: extraction.name,
         coordinates: extraction.coordinates,
         type: extractionType,
-        order: currentOrder++,
+        order: 7, // 8th waypoint (0-indexed: 7)
         instruction: `Extract at ${extractionName}`,
         distanceToExtraction: 0,
         isNearExtraction: true,
