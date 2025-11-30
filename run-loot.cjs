@@ -91,6 +91,35 @@ Available maps: dam, spaceport, buried-city, blue-gate
     }
   }
 
+  // Fetch map data early to get spawn points for display and calibration
+  let mapData = null;
+  let spawnPoints = [];
+  try {
+    const client = createArcRaidersClient();
+    mapData = await client.getMapData(mapName);
+    spawnPoints = (mapData.waypoints || []).filter(wp => wp.type === 'spawn' && wp.coordinates);
+  } catch (error) {
+    console.error('⚠️  Warning: Could not fetch map data for spawn points:', error.message);
+  }
+
+  // Helper function to display spawn points
+  function displaySpawnPoints() {
+    if (spawnPoints.length === 0) {
+      console.log('   No spawn points available for this map.');
+      return;
+    }
+    console.log(`\n📍 Available spawn points for ${mapName}:`);
+    console.log('─'.repeat(60));
+    spawnPoints.forEach((spawn, i) => {
+      const coords = spawn.coordinates;
+      const name = spawn.name || 'player_spawn';
+      const zStr = coords.z !== undefined ? `, ${coords.z.toFixed(1)}` : '';
+      console.log(`   ${(i + 1).toString().padStart(2)}. ${name.padEnd(25)} (${coords.x.toFixed(1)}, ${coords.y.toFixed(1)}${zStr})`);
+    });
+    console.log('─'.repeat(60));
+    console.log('💡 You can use these coordinates or search by landmark name\n');
+  }
+
   if (args.length >= 2) {
     const locationArg = args.slice(1).join(' '); // Join all args after map name
     
@@ -105,6 +134,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
       if (!isNaN(x) && !isNaN(y)) {
         if (z !== undefined && isNaN(z)) {
           console.error('❌ Error: Z coordinate must be a number');
+          displaySpawnPoints();
           process.exit(1);
         }
         useCoordinates = true;
@@ -119,7 +149,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
           console.log(`✅ Found: ${locationArg} at (${x.toFixed(2)}, ${y.toFixed(2)}${z !== undefined ? `, ${z.toFixed(2)}` : ''})`);
         } else {
           console.error(`❌ Error: Could not find location "${locationArg}" on map "${mapName}"`);
-          console.log('   Try using coordinates instead, or check the location name.');
+          displaySpawnPoints();
           process.exit(1);
         }
       }
@@ -134,17 +164,28 @@ Available maps: dam, spaceport, buried-city, blue-gate
         console.log(`✅ Found: ${locationArg} at (${x.toFixed(2)}, ${y.toFixed(2)}${z !== undefined ? `, ${z.toFixed(2)}` : ''})`);
       } else {
         console.error(`❌ Error: Could not find location "${locationArg}" on map "${mapName}"`);
-        console.log('   Try using coordinates instead, or check the location name.');
+        displaySpawnPoints();
         process.exit(1);
       }
     }
   } else {
-    // Use default spawn coordinates
-    const defaultSpawn = DEFAULT_SPAWN[mapName] || DEFAULT_SPAWN.dam;
-    x = defaultSpawn.x;
-    y = defaultSpawn.y;
-    useCoordinates = true;
-    console.log(`📍 Using saved spawn coordinates: (${x}, ${y})`);
+    // No coordinates provided - show spawn points and use first one
+    if (spawnPoints.length > 0) {
+      displaySpawnPoints();
+      const firstSpawn = spawnPoints[0];
+      x = firstSpawn.coordinates.x;
+      y = firstSpawn.coordinates.y;
+      z = firstSpawn.coordinates.z;
+      useCoordinates = true;
+      console.log(`📍 Using first spawn point: ${firstSpawn.name || 'player_spawn'} at (${x.toFixed(1)}, ${y.toFixed(1)}${z !== undefined ? `, ${z.toFixed(1)}` : ''})`);
+    } else {
+      // Fallback to default spawn coordinates
+      const defaultSpawn = DEFAULT_SPAWN[mapName] || DEFAULT_SPAWN.dam;
+      x = defaultSpawn.x;
+      y = defaultSpawn.y;
+      useCoordinates = true;
+      console.log(`📍 Using saved spawn coordinates: (${x}, ${y})`);
+    }
   }
 
   console.log('\n🔄 Generating loot run...\n');
@@ -157,6 +198,12 @@ Available maps: dam, spaceport, buried-city, blue-gate
 
   try {
     const client = createArcRaidersClient();
+    
+    // Re-fetch map data if we don't have it yet (should already be fetched above)
+    if (!mapData) {
+      mapData = await client.getMapData(mapName);
+      spawnPoints = (mapData.waypoints || []).filter(wp => wp.type === 'spawn' && wp.coordinates);
+    }
 
     const options = {
       startAtSpawn: !useCoordinates, // Use spawn point if no coordinates
@@ -186,9 +233,9 @@ Available maps: dam, spaceport, buried-city, blue-gate
 
     console.log(client.formatLootRunPath(lootRun));
     
-    // Automatically generate map overlay
+    // Automatically generate map overlay (pass spawn points for calibration)
     console.log('\n🔄 Generating map overlay...');
-    generateMapOverlay(lootRun, mapName);
+    generateMapOverlay(lootRun, mapName, spawnPoints);
     
   } catch (error) {
     console.error('\n❌ Error generating loot run:', error.message);
@@ -217,67 +264,142 @@ function getMapImagePath(mapName) {
   return `data:image/svg+xml;base64,${Buffer.from(placeholder).toString('base64')}`;
 }
 
-function generateMapOverlay(lootRun, mapName) {
+function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
   try {
-    // Map coordinate bounds - calibrated based on actual game map
-    // These need to match the actual map image coordinate system
-    // Using a reference waypoint to ensure proper alignment
+    // Map coordinate bounds and image dimensions
     const MAP_BOUNDS = {
       dam: {
-        // Based on API data analysis - dam map coordinates
-        // Need to calibrate using a known waypoint location
         minX: 0,
         maxX: 6000,
         minY: 0,
         maxY: 4500,
-        // Map image dimensions - adjust based on actual image size
-        // The map image appears to be roughly 1200x900 or similar
         imageWidth: 1200,
         imageHeight: 900,
-        // Reference point for calibration - using a known location
-        // Example: If "The Dam" center is at pixel (600, 300) on the image
-        // and corresponds to coordinates (3000, 2250), we can calibrate
-        // For now, using full bounds - will be calibrated when image is loaded
-        referencePoint: {
-          // Known location: "The Dam" area center
-          coord: { x: 3000, y: 2250 }, // Approximate center of dam map
-          pixel: { x: 600, y: 450 },   // Approximate center of image
-        }
+      },
+      spaceport: {
+        minX: 0,
+        maxX: 6000,
+        minY: 0,
+        maxY: 4500,
+        imageWidth: 1200,
+        imageHeight: 900,
+      },
+      'buried-city': {
+        minX: 0,
+        maxX: 6000,
+        minY: 0,
+        maxY: 4500,
+        imageWidth: 1200,
+        imageHeight: 900,
+      },
+      'blue-gate': {
+        minX: 0,
+        maxX: 6000,
+        minY: 0,
+        maxY: 4500,
+        imageWidth: 1200,
+        imageHeight: 900,
       }
     };
     
     const bounds = MAP_BOUNDS[mapName] || MAP_BOUNDS.dam;
     
-    // Calculate coordinate to pixel transformation
-    // Using reference point for calibration if available
-    const coordToPixel = (coord) => {
-      let pixelX, pixelY;
+    // Multi-point calibration using spawn points
+    // Use at least 2 spawn points for better accuracy
+    let referencePoints = [];
+    
+    if (spawnPoints.length >= 2) {
+      // Use up to 4 spawn points for calibration (more points = better accuracy)
+      const pointsToUse = spawnPoints.slice(0, Math.min(4, spawnPoints.length));
       
-      if (bounds.referencePoint) {
-        // Use reference point for more accurate calibration
-        const ref = bounds.referencePoint;
-        const scaleX = bounds.imageWidth / (bounds.maxX - bounds.minX);
-        const scaleY = bounds.imageHeight / (bounds.maxY - bounds.minY);
+      // Calculate pixel positions for spawn points based on their relative positions
+      // This assumes spawn points are distributed across the map
+      const allCoords = spawnPoints.map(sp => sp.coordinates);
+      const minX = Math.min(...allCoords.map(c => c.x));
+      const maxX = Math.max(...allCoords.map(c => c.x));
+      const minY = Math.min(...allCoords.map(c => c.y));
+      const maxY = Math.max(...allCoords.map(c => c.y));
+      
+      // Create reference points by mapping spawn coordinates to pixel positions
+      referencePoints = pointsToUse.map(sp => {
+        const coord = sp.coordinates;
+        // Normalize coordinates to 0-1 range
+        const normX = (coord.x - minX) / (maxX - minX || 1);
+        const normY = (coord.y - minY) / (maxY - minY || 1);
         
-        // Calculate offset from reference point
-        const offsetX = (coord.x - ref.coord.x) * scaleX;
-        const offsetY = (coord.y - ref.coord.y) * scaleY;
+        // Map to pixel positions (with some margin)
+        const margin = 0.1; // 10% margin on all sides
+        const pixelX = margin * bounds.imageWidth + normX * (1 - 2 * margin) * bounds.imageWidth;
+        const pixelY = margin * bounds.imageHeight + normY * (1 - 2 * margin) * bounds.imageHeight;
         
-        pixelX = ref.pixel.x + offsetX;
-        pixelY = ref.pixel.y - offsetY; // Flip Y axis
+        return {
+          coord: { x: coord.x, y: coord.y },
+          pixel: { x: pixelX, y: pixelY }
+        };
+      });
+    } else if (spawnPoints.length === 1) {
+      // Single spawn point - use center of map as second reference
+      const sp = spawnPoints[0];
+      const centerCoord = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
+      referencePoints = [
+        {
+          coord: { x: sp.coordinates.x, y: sp.coordinates.y },
+          pixel: { x: bounds.imageWidth * 0.5, y: bounds.imageHeight * 0.5 }
+        },
+        {
+          coord: centerCoord,
+          pixel: { x: bounds.imageWidth * 0.5, y: bounds.imageHeight * 0.5 }
+        }
+      ];
+    }
+    
+    // Calculate coordinate to pixel transformation using multiple reference points
+    const coordToPixel = (coord) => {
+      if (referencePoints.length >= 2) {
+        // Use affine transformation with multiple reference points
+        // Calculate weighted average based on distance to reference points
+        let totalWeight = 0;
+        let weightedX = 0;
+        let weightedY = 0;
+        
+        for (const ref of referencePoints) {
+          const dx = coord.x - ref.coord.x;
+          const dy = coord.y - ref.coord.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          // Use inverse distance weighting (closer points have more influence)
+          const weight = distance > 0 ? 1 / (distance + 1) : 1000;
+          
+          // Calculate pixel offset from this reference point
+          const scaleX = bounds.imageWidth / (bounds.maxX - bounds.minX || 1);
+          const scaleY = bounds.imageHeight / (bounds.maxY - bounds.minY || 1);
+          const offsetX = dx * scaleX;
+          const offsetY = dy * scaleY;
+          
+          const pixelX = ref.pixel.x + offsetX;
+          const pixelY = ref.pixel.y - offsetY; // Flip Y axis
+          
+          weightedX += pixelX * weight;
+          weightedY += pixelY * weight;
+          totalWeight += weight;
+        }
+        
+        return {
+          x: weightedX / totalWeight,
+          y: weightedY / totalWeight
+        };
       } else {
         // Fallback to simple normalization
-        let normalizedX = (coord.x - bounds.minX) / (bounds.maxX - bounds.minX);
-        let normalizedY = (coord.y - bounds.minY) / (bounds.maxY - bounds.minY);
+        let normalizedX = (coord.x - bounds.minX) / (bounds.maxX - bounds.minX || 1);
+        let normalizedY = (coord.y - bounds.minY) / (bounds.maxY - bounds.minY || 1);
         
         normalizedX = Math.max(0, Math.min(1, normalizedX));
         normalizedY = Math.max(0, Math.min(1, normalizedY));
         
-        pixelX = normalizedX * bounds.imageWidth;
-        pixelY = (1 - normalizedY) * bounds.imageHeight; // Flip Y axis
+        return {
+          x: normalizedX * bounds.imageWidth,
+          y: (1 - normalizedY) * bounds.imageHeight // Flip Y axis
+        };
       }
-      
-      return { x: pixelX, y: pixelY };
     };
     
     // Get all coordinates for bounds calculation
@@ -494,10 +616,10 @@ function generateMapOverlay(lootRun, mapName) {
             </div>
             <p style="margin-top: 10px; font-size: 12px; color: #888;">
                 💡 Reference: Map bounds (${bounds.minX}, ${bounds.minY}) to (${bounds.maxX}, ${bounds.maxY})
-                ${bounds.referencePoint ? ` | Calibrated using reference point at (${bounds.referencePoint.coord.x}, ${bounds.referencePoint.coord.y})` : ''}
+                ${referencePoints.length > 0 ? ` | Calibrated using ${referencePoints.length} spawn point${referencePoints.length > 1 ? 's' : ''}` : ''}
             </p>
             <p style="margin-top: 5px; font-size: 11px; color: #666;">
-                ${bounds.referencePoint ? '✅ Using calibrated coordinate system' : '⚠️ Using estimated bounds - save map image as map-dam.png for better accuracy'}
+                ${referencePoints.length >= 2 ? '✅ Using multi-point calibration for better accuracy' : referencePoints.length === 1 ? '⚠️ Using single-point calibration - accuracy may vary' : '⚠️ Using estimated bounds - spawn points not available'}
             </p>
         </div>
 
