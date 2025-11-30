@@ -65,32 +65,24 @@ Available maps: dam, spaceport, buried-city, blue-gate
   let x, y, z;
   let useCoordinates = false;
 
-  // Helper function to find location by name
+  // Helper function to find location by name (searches waypoints and POIs)
   async function findLocationByName(mapName, locationName) {
     try {
       const client = createArcRaidersClient();
       const mapData = await client.getMapData(mapName);
-      
       const searchLower = locationName.toLowerCase();
       
-      // Search in waypoints
-      const waypointMatches = (mapData.waypoints || []).filter(wp => 
-        wp.name && wp.name.toLowerCase().includes(searchLower)
+      // Search in waypoints first (preferred)
+      const waypointMatch = (mapData.waypoints || []).find(wp => 
+        wp.name && wp.name.toLowerCase().includes(searchLower) && wp.coordinates
       );
+      if (waypointMatch) return waypointMatch.coordinates;
       
-      // Search in POIs
-      const poiMatches = (mapData.pois || []).filter(poi => 
-        poi.name && poi.name.toLowerCase().includes(searchLower)
+      // Fallback to POIs
+      const poiMatch = (mapData.pois || []).find(poi => 
+        poi.name && poi.name.toLowerCase().includes(searchLower) && poi.coordinates
       );
-      
-      // Prefer waypoints over POIs
-      if (waypointMatches.length > 0 && waypointMatches[0].coordinates) {
-        return waypointMatches[0].coordinates;
-      }
-      
-      if (poiMatches.length > 0 && poiMatches[0].coordinates) {
-        return poiMatches[0].coordinates;
-      }
+      if (poiMatch) return poiMatch.coordinates;
       
       return null;
     } catch (error) {
@@ -118,7 +110,6 @@ Available maps: dam, spaceport, buried-city, blue-gate
         useCoordinates = true;
       } else {
         // Not valid coordinates, try as landmark name
-        console.log(`🔍 Searching for landmark: "${locationArg}"...`);
         const coords = await findLocationByName(mapName, locationArg);
         if (coords) {
           x = coords.x;
@@ -134,7 +125,6 @@ Available maps: dam, spaceport, buried-city, blue-gate
       }
     } else {
       // Single word, try as landmark
-      console.log(`🔍 Searching for landmark: "${locationArg}"...`);
       const coords = await findLocationByName(mapName, locationArg);
       if (coords) {
         x = coords.x;

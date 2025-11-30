@@ -129,12 +129,14 @@ function calculatePlayerInterceptionRisk(
     lateSpawnWarnings: [],
   };
 
-  // Calculate arrival times for each waypoint
+  // Calculate arrival times for each waypoint (reuse if already calculated)
   let currentTime = 0;
   const waypointsWithTime = path.map((wp, index) => {
     if (index > 0) {
       const distance = calculateDistance(path[index - 1].coordinates, wp.coordinates);
       currentTime += distance / playerSpeed;
+    } else if (wp.arrivalTime !== undefined) {
+      currentTime = wp.arrivalTime; // Use pre-calculated time if available
     }
     return { waypoint: wp, time: currentTime, index };
   });
