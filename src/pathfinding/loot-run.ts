@@ -21,6 +21,11 @@ export interface PathWaypoint {
   dangerReasons?: string[]; // Why this area is dangerous
   arcDifficulty?: 'easy' | 'medium' | 'hard' | 'extreme'; // ARC difficulty if applicable
   arrivalTime?: number; // Time in seconds from start when you reach this point
+  waitTime?: number; // Time in seconds to wait at this location
+  waitReason?: string; // Reason for waiting
+  fastestPlayerArrivalTime?: number; // Fastest possible arrival time from any spawn
+  fastestPlayerSpawnName?: string; // Name of spawn with fastest arrival
+  safeWindow?: number; // How long you have at this location before another player could arrive (in seconds)
   playerInterceptionRisk?: PlayerInterceptionRisk; // Risk of other players intercepting
 }
 
@@ -498,6 +503,7 @@ function generateExtractionAwarePath(
       instruction: `Start from your current position`,
       distanceToExtraction: distToExt,
       isNearExtraction: distToExt <= extractionProximity,
+      arrivalTime: 0,
     });
     currentPoint = options.startAtCoordinates;
   } else if (options.startAtSpawn && spawnPoints.length > 0) {
@@ -515,6 +521,7 @@ function generateExtractionAwarePath(
         instruction: `Start at spawn point: ${spawn.name} (NOTE: Use --spawn-x/y/z if you spawned elsewhere)`,
         distanceToExtraction: distToExt,
         isNearExtraction: distToExt <= extractionProximity,
+        arrivalTime: 0,
       });
       visited.add(spawn.id);
       currentPoint = spawn.coordinates;
@@ -698,9 +705,103 @@ function generateExtractionAwarePath(
     if (!nextTarget) break;
 
     const travelTime = currentPoint ? calculateDistance(currentPoint, nextTarget.coordinates) / averageSpeed : 0;
-    timeSpent += travelTime;
+    const arrivalTime = timeSpent + travelTime;
+    
+    // Calculate wait time and safe window based on other players' spawn points
+    let waitTime = 0;
+    let waitReason = '';
+    let fastestArrivalTime = Infinity;
+    let fastestSpawnName = '';
+    let safeWindow = Infinity;
+    
+    if (avoidInterception && allSpawnPoints && allSpawnPoints.length > 0) {
+      // Get user's spawn coordinates
+      const userSpawnCoords = options.startAtCoordinates || 
+        (spawnPoints[0]?.coordinates ?? null);
+      
+      // Filter out user's spawn
+      const otherSpawnWaypoints = allSpawnPoints
+        .filter(sp => sp.coordinates)
+        .filter(sp => {
+          if (!userSpawnCoords || !sp.coordinates) return true;
+          return calculateDistance(sp.coordinates, userSpawnCoords) > 5;
+        });
+      
+      if (otherSpawnWaypoints.length > 0) {
+        // Calculate fastest possible arrival time from any spawn point
+        for (const otherSpawn of otherSpawnWaypoints) {
+          if (!otherSpawn.coordinates) continue;
+          
+          const directDistance = calculateDistance(otherSpawn.coordinates, nextTarget.coordinates);
+          const fastestTime = directDistance / playerSpeed;
+          
+          if (fastestTime < fastestArrivalTime) {
+            fastestArrivalTime = fastestTime;
+            fastestSpawnName = otherSpawn.name || 'Player';
+          }
+        }
+        
+        // Calculate intelligent wait time (max 60s)
+        if (fastestArrivalTime < Infinity) {
+          const timeDifference = fastestArrivalTime - arrivalTime;
+          const absTimeDifference = Math.abs(timeDifference);
+          const riskWindow = 60;
+          
+          // If they arrive before us, wait for them to clear
+          if (fastestArrivalTime < arrivalTime) {
+            const theirDepartureTime = fastestArrivalTime + 30; // 30s to loot
+            if (theirDepartureTime > arrivalTime) {
+              const timeUntilTheyClear = theirDepartureTime - arrivalTime;
+              const safetyBuffer = Math.min(15, timeUntilTheyClear * 0.3);
+              waitTime = Math.min(60, Math.round(timeUntilTheyClear + safetyBuffer));
+              safeWindow = Math.max(0, fastestArrivalTime - (arrivalTime + waitTime));
+            } else {
+              waitTime = Math.min(60, Math.max(5, Math.round((arrivalTime - theirDepartureTime) * 0.2)));
+              safeWindow = Math.max(0, fastestArrivalTime - (arrivalTime + waitTime));
+            }
+          }
+          // If they arrive close to the same time
+          else if (absTimeDifference <= riskWindow) {
+            const theirDepartureTime = fastestArrivalTime + 30;
+            const timeUntilTheyClear = theirDepartureTime - arrivalTime;
+            const riskFactor = 1 - (absTimeDifference / riskWindow);
+            const baseWait = Math.max(10, timeUntilTheyClear);
+            waitTime = Math.min(60, Math.round(baseWait + (riskFactor * 20)));
+            safeWindow = Math.max(0, fastestArrivalTime - (arrivalTime + waitTime));
+          }
+          // If they arrive after us but within 30s
+          else if (fastestArrivalTime <= arrivalTime + 30) {
+            const timeUntilTheyArrive = fastestArrivalTime - arrivalTime;
+            waitTime = Math.min(60, Math.max(5, Math.round(timeUntilTheyArrive * 0.3)));
+            safeWindow = Math.max(0, fastestArrivalTime - (arrivalTime + waitTime));
+          } else {
+            safeWindow = fastestArrivalTime - arrivalTime;
+          }
+          
+          // Create wait reason message
+          if (waitTime > 0) {
+            const waitMin = Math.floor(waitTime / 60);
+            const waitSec = Math.round(waitTime % 60);
+            const fastestMin = Math.floor(fastestArrivalTime / 60);
+            const fastestSec = Math.round(fastestArrivalTime % 60);
+            const yourMin = Math.floor(arrivalTime / 60);
+            const yourSec = Math.round(arrivalTime % 60);
+            
+            if (fastestArrivalTime < arrivalTime) {
+              waitReason = `⏱️ Wait ${waitMin}m ${waitSec}s - ${fastestSpawnName} could arrive at ${fastestMin}m ${fastestSec}s (before you at ${yourMin}m ${yourSec}s). Wait for them to clear.`;
+            } else if (absTimeDifference <= riskWindow) {
+              waitReason = `⏱️ Wait ${waitMin}m ${waitSec}s - ${fastestSpawnName} could arrive at ${fastestMin}m ${fastestSec}s (within ${Math.round(absTimeDifference)}s of you). Avoid conflict.`;
+            } else {
+              waitReason = `⏱️ Wait ${waitMin}m ${waitSec}s - ${fastestSpawnName} could arrive at ${fastestMin}m ${fastestSec}s (shortly after you). Safety buffer.`;
+            }
+          }
+        }
+      }
+    }
+    
+    timeSpent += travelTime + waitTime;
 
-    // Build instruction with danger info
+    // Build instruction with danger info and wait time
     let instruction = '';
     if (nextTarget.type === 'arc') {
       const arcDifficulty = 'arcDifficulty' in nextTarget ? nextTarget.arcDifficulty : 'medium';
@@ -722,6 +823,9 @@ function generateExtractionAwarePath(
     if (nextTarget.dangerLevel !== 'low' && nextTarget.dangerReasons.length > 0) {
       instruction += ` ⚠️ ${nextTarget.dangerLevel.toUpperCase()}: ${nextTarget.dangerReasons.join(', ')}`;
     }
+    if (waitTime > 0 && waitReason) {
+      instruction += ` ${waitReason}`;
+    }
 
     const waypoint: PathWaypoint = {
       id: nextTarget.id,
@@ -734,6 +838,12 @@ function generateExtractionAwarePath(
       isNearExtraction: nextTarget.isNearExtraction,
       dangerLevel: nextTarget.dangerLevel,
       dangerReasons: nextTarget.dangerReasons,
+      arrivalTime: arrivalTime,
+      waitTime: waitTime > 0 ? waitTime : undefined,
+      waitReason: waitTime > 0 ? waitReason : undefined,
+      fastestPlayerArrivalTime: fastestArrivalTime < Infinity ? fastestArrivalTime : undefined,
+      fastestPlayerSpawnName: fastestSpawnName || undefined,
+      safeWindow: safeWindow < Infinity ? safeWindow : undefined,
     };
 
     if (nextTarget.type === 'arc' && 'arcDifficulty' in nextTarget) {

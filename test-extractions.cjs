@@ -57,3 +57,4 @@ async function testExtractions(mapName) {
 const mapName = process.argv[2] || 'dam';
 testExtractions(mapName);
 
+

@@ -735,6 +735,100 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
             </div>
         </div>
 
+        <div class="schedule-section" style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin-top: 20px;">
+            <h3>⏱️ Timing Schedule</h3>
+            <p style="color: #b0b0b0; font-size: 14px; margin-bottom: 15px;">
+                Shows when to arrive, wait times, when other players could reach each location, and how long you have at each location before another team could arrive (Safe Window)
+            </p>
+            <table style="width: 100%; border-collapse: collapse; color: #e0e0e0;">
+                <thead>
+                    <tr style="background: #1e1e1e; border-bottom: 2px solid #4a9eff;">
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Step</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Location</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Your Arrival</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Fastest Player Arrival</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Wait Time</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3a3a3a;">Safe Window</th>
+                        <th style="padding: 10px; text-align: left;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${lootRun.waypoints.map((wp, i) => {
+                      const arrivalTime = wp.arrivalTime || 0;
+                      const arrivalMin = Math.floor(arrivalTime / 60);
+                      const arrivalSec = Math.round(arrivalTime % 60);
+                      const arrivalStr = arrivalTime > 0 ? `${arrivalMin}m ${arrivalSec}s` : '-';
+                      
+                      const fastestArrival = wp.fastestPlayerArrivalTime;
+                      const fastestMin = fastestArrival ? Math.floor(fastestArrival / 60) : null;
+                      const fastestSec = fastestArrival ? Math.round(fastestArrival % 60) : null;
+                      const fastestStr = fastestArrival ? `${fastestMin}m ${fastestSec}s (${wp.fastestPlayerSpawnName || 'Player'})` : '-';
+                      
+                      const waitTime = wp.waitTime || 0;
+                      const waitMin = waitTime > 0 ? Math.floor(waitTime / 60) : 0;
+                      const waitSec = waitTime > 0 ? Math.round(waitTime % 60) : 0;
+                      const waitStr = waitTime > 0 ? `${waitMin}m ${waitSec}s` : '-';
+                      
+                      const safeWindow = wp.safeWindow;
+                      let safeWindowStr = '-';
+                      let safeWindowColor = '#e0e0e0';
+                      if (safeWindow !== undefined && safeWindow < Infinity) {
+                        const safeMin = Math.floor(safeWindow / 60);
+                        const safeSec = Math.round(safeWindow % 60);
+                        safeWindowStr = `${safeMin}m ${safeSec}s`;
+                        if (safeWindow > 60) {
+                          safeWindowColor = '#00ff00';
+                        } else if (safeWindow > 30) {
+                          safeWindowColor = '#ffaa00';
+                        } else {
+                          safeWindowColor = '#ff6666';
+                        }
+                      }
+                      
+                      let status = '✅ Safe';
+                      let statusColor = '#00ff00';
+                      if (fastestArrival && fastestArrival < arrivalTime) {
+                        if (waitTime > 0) {
+                          status = '⏱️ Wait Required';
+                          statusColor = '#ffaa00';
+                        } else {
+                          status = '⚠️ Possible Conflict';
+                          statusColor = '#ff6666';
+                        }
+                      }
+                      
+                      if (wp.type === 'spawn') {
+                        return `
+                    <tr style="border-bottom: 1px solid #3a3a3a;">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">${i + 1}</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>${wp.name}</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">0m 0s</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">-</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">-</td>
+                        <td style="padding: 8px; color: #00ff00;">✅ Start</td>
+                    </tr>`;
+                      }
+                      
+                      return `
+                    <tr style="border-bottom: 1px solid #3a3a3a; ${waitTime > 0 ? 'background: rgba(255, 170, 0, 0.1);' : ''}">
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">${i + 1}</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;"><strong>${wp.name}</strong></td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a;">${arrivalStr}</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; ${fastestArrival && fastestArrival < arrivalTime ? 'color: #ff6666;' : ''}">${fastestStr}</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; ${waitTime > 0 ? 'color: #ffaa00; font-weight: bold;' : ''}">${waitStr}</td>
+                        <td style="padding: 8px; border-right: 1px solid #3a3a3a; color: ${safeWindowColor}; font-weight: ${safeWindow !== undefined && safeWindow < Infinity ? 'bold' : 'normal'};" title="Time you have at this location before another player could arrive">${safeWindowStr}</td>
+                        <td style="padding: 8px; color: ${statusColor};">${status}</td>
+                    </tr>`;
+                    }).join('\n')}
+                </tbody>
+            </table>
+            ${lootRun.waypoints.some(wp => wp.waitTime && wp.waitTime > 0) ? `
+            <div style="margin-top: 15px; padding: 10px; background: rgba(255, 170, 0, 0.15); border-left: 4px solid #ffaa00; border-radius: 4px;">
+                <p style="margin: 0; color: #ffaa00;"><strong>⏱️ Wait Times:</strong> Wait at the location until the specified time has passed to avoid other players.</p>
+            </div>` : ''}
+        </div>
+
         <div class="waypoints-list">
             <h3>Step-by-Step Instructions</h3>
             ${lootRun.waypoints.map((wp, i) => {
