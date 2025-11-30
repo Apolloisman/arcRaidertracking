@@ -10,10 +10,19 @@ const { createArcRaidersClient } = require('./dist/index.js');
 const fs = require('fs');
 const path = require('path');
 
-// __dirname is available in CommonJS, but if not, use process.cwd()
-if (typeof __dirname === 'undefined') {
-  var __dirname = process.cwd();
-}
+// Get the script's directory (where the script file is located)
+// In CommonJS, __dirname is automatically available
+// If somehow it's not, calculate it from __filename or use import.meta.url equivalent
+const scriptDir = __dirname || (() => {
+  // Fallback: get directory from the script file path
+  const { fileURLToPath } = require('url');
+  const { dirname } = require('path');
+  if (typeof __filename !== 'undefined') {
+    return dirname(__filename);
+  }
+  // Last resort: use current working directory
+  return process.cwd();
+})();
 
 // Default spawn coordinates (from your earlier run)
 const DEFAULT_SPAWN = {
@@ -247,8 +256,8 @@ Available maps: dam, spaceport, buried-city, blue-gate
 }
 
 function getMapImagePath(mapName) {
-  // Check if map image file exists in current directory
-  const imagePath = path.join(__dirname, `map-${mapName}.png`);
+  // Check if map image file exists in script's directory
+  const imagePath = path.join(scriptDir, `map-${mapName}.png`);
   if (fs.existsSync(imagePath)) {
     // Use relative path instead of base64 for better performance
     // The HTML file will be in the same directory as the image
@@ -690,7 +699,8 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = []) {
 
     // Save HTML file with consistent name
     const filename = `loot-run-${mapName}.html`;
-    const filepath = path.join(process.cwd(), filename);
+    // Save HTML file in the script's directory
+    const filepath = path.join(scriptDir, filename);
     fs.writeFileSync(filepath, html);
 
     console.log(`✅ Map overlay saved: ${filename}`);
