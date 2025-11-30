@@ -999,13 +999,15 @@ export function generateLootRun(
       waypoints = generateNearestNeighborPath(spawnPoints, cachePOIs, extractionPoints, options);
       break;
     default:
+      // Default to extraction-aware algorithm
       waypoints = generateExtractionAwarePath(
         spawnPoints, 
         cachePOIs, 
         extractionPoints, 
         dangerousPOIs,
         arcs,
-        options
+        options,
+        spawnPoints // Pass all spawn points for player avoidance
       );
   }
 
