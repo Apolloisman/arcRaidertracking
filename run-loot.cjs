@@ -10,19 +10,9 @@ const { createArcRaidersClient } = require('./dist/index.js');
 const fs = require('fs');
 const path = require('path');
 
-// Get the script's directory (where the script file is located)
-// In CommonJS, __dirname is automatically available
-// If somehow it's not, calculate it from __filename or use import.meta.url equivalent
-const scriptDir = __dirname || (() => {
-  // Fallback: get directory from the script file path
-  const { fileURLToPath } = require('url');
-  const { dirname } = require('path');
-  if (typeof __filename !== 'undefined') {
-    return dirname(__filename);
-  }
-  // Last resort: use current working directory
-  return process.cwd();
-})();
+// Use the script's directory (where run-loot.cjs is located)
+// In CommonJS (.cjs files), __dirname is always available
+const scriptDir = __dirname;
 
 // Default spawn coordinates (from your earlier run)
 const DEFAULT_SPAWN = {
