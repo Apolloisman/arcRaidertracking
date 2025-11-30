@@ -1,5 +1,0 @@
-[33mea1a506[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Implement multi-point calibration using spawn points
-[33m2fd9f7d[m Fix default case to include spawn points parameter
-[33m036778d[m Clean up redundant code and simplify
-[33m53e8337[m Add loot run pathfinding with player avoidance and landmark search
-[33m59da02e[m Rename project from API Client to API Wrapper Client
