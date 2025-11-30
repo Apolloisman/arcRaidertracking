@@ -91,14 +91,17 @@ Available maps: dam, spaceport, buried-city, blue-gate
   }
 
   // Fetch map data early to get spawn points for display and calibration
+  // This will use cache if available, minimizing API calls
   let mapData = null;
   let spawnPoints = [];
   try {
     const client = createArcRaidersClient();
+    // This will check cache first - if cached, no API call is made
     mapData = await client.getMapData(mapName);
     spawnPoints = (mapData.waypoints || []).filter(wp => wp.type === 'spawn' && wp.coordinates);
   } catch (error) {
     console.error('⚠️  Warning: Could not fetch map data for spawn points:', error.message);
+    console.error('   This might be a network issue. Check your internet connection.');
   }
 
   // Helper function to display spawn points

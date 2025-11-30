@@ -19,8 +19,10 @@ export class PersistentCache {
 
   constructor(defaultTTL: number = 5 * 60 * 1000, cacheFilePath?: string) {
     this.defaultTTL = defaultTTL;
-    // Default cache file location: .cache/arc-raiders-cache.json in the project root
-    this.cacheFilePath = cacheFilePath || path.join(process.cwd(), '.cache', 'arc-raiders-cache.json');
+    // Default cache file location: .cache/arc-raiders-cache.json
+    // Use script directory if available, otherwise fall back to process.cwd()
+    const baseDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+    this.cacheFilePath = cacheFilePath || path.join(baseDir, '.cache', 'arc-raiders-cache.json');
     
     // Load cache from disk on initialization
     this.loadFromDisk();
@@ -127,7 +129,8 @@ export class PersistentCache {
     }
 
     const now = Date.now();
-    if (now - entry.timestamp > entry.ttl) {
+    // If TTL is 0, cache never expires (cache forever)
+    if (entry.ttl > 0 && now - entry.timestamp > entry.ttl) {
       this.cache.delete(key);
       this.saveToDisk();
       return false;

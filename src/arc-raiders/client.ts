@@ -51,8 +51,12 @@ export class ArcRaidersClient {
       timeout: config?.timeout || this.defaultTimeout,
     });
     this.cacheEnabled = config?.cacheEnabled !== false;
-    // Default to 24 hours (once per day) unless specified
-    const cacheTTL = config?.cacheTTL || 24 * 60 * 60 * 1000;
+    // Default to 7 days (168 hours) - very aggressive caching to minimize API calls
+    // Map data rarely changes, so we can cache it for a long time
+    // Set to 0 for no expiration (cache forever until manually cleared)
+    const cacheTTL = config?.cacheTTL !== undefined 
+      ? config.cacheTTL 
+      : 7 * 24 * 60 * 60 * 1000; // 7 days default
     
     // Use persistent cache by default (saves to disk, persists across runs)
     const usePersistentCache = config?.usePersistentCache !== false;
@@ -296,9 +300,12 @@ export class ArcRaidersClient {
     if (this.cacheEnabled) {
       const cached = this.cache.get<ArcMission[]>(cacheKey);
       if (cached) {
+        // Cache hit - no API call needed
         return cached;
       }
     }
+    
+    // Cache miss - API call required
 
     const allARCs: ArcMission[] = [];
     let page = 1;
