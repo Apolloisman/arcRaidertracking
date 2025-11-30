@@ -37,6 +37,17 @@ if "%coords%"=="" (
     node run-loot.cjs %map% %coords%
 )
 
+REM Automatically launch the generated HTML overlay
+set "htmlFile=loot-run-%map%.html"
+if exist "%htmlFile%" (
+    echo.
+    echo Opening %htmlFile% in your default browser...
+    start "" "%~dp0%htmlFile%"
+) else (
+    echo.
+    echo ⚠️ Could not find %htmlFile%. Make sure the run completed successfully.
+)
+
 echo.
 echo Press any key to exit...
 pause >nul

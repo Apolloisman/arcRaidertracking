@@ -404,8 +404,31 @@ export class ArcRaidersClient {
                            subcategory.includes('spawn') ||
                            item.category === 'spawn';
       
+      // Check if this is an extraction point or hatch (can be in instanceName, subcategory, or category)
+      const isExtraction = instanceName.includes('extraction') ||
+                          instanceName.includes('extract') ||
+                          instanceName.includes('exfil') ||
+                          instanceName.includes('hatch') ||
+                          instanceName.includes('departure') ||
+                          instanceName.includes('evac') ||
+                          instanceName.includes('evacuation') ||
+                          subcategory.includes('extraction') ||
+                          subcategory.includes('extract') ||
+                          subcategory.includes('exfil') ||
+                          subcategory.includes('hatch') ||
+                          subcategory.includes('departure') ||
+                          subcategory.includes('evac') ||
+                          item.category === 'extraction' ||
+                          item.category === 'hatch' ||
+                          item.category === 'departure' ||
+                          item.category?.toLowerCase().includes('extraction') ||
+                          item.category?.toLowerCase().includes('hatch') ||
+                          item.category?.toLowerCase().includes('departure');
+      
       if (isPlayerSpawn) {
         poiType = 'spawn';
+      } else if (isExtraction) {
+        poiType = 'extraction';
       }
       
       if (poiType === 'spawn' || poiType === 'extraction') {
@@ -425,6 +448,44 @@ export class ArcRaidersClient {
       }
     });
     
+    // Scan POIs for extraction points and hatches that weren't caught in initial categorization
+    // These might be stored as type 'other' with hatch/extraction in the name
+    const extractionPOIs: Waypoint[] = [];
+    const remainingPOIs: PointOfInterest[] = [];
+    
+    pois.forEach(poi => {
+      const poiName = (poi.name || '').toLowerCase();
+      const isHatchOrExtraction = poiName.includes('hatch') ||
+                                  poiName.includes('extraction') ||
+                                  poiName.includes('extract') ||
+                                  poiName.includes('exfil') ||
+                                  poiName.includes('departure') ||
+                                  poiName.includes('evac') ||
+                                  poiName.includes('evacuation') ||
+                                  poiName.includes('exit') ||
+                                  poiName.includes('escape') ||
+                                  poiName.includes('helipad') ||
+                                  poiName.includes('landing') ||
+                                  poiName.includes('pickup');
+      
+      if (isHatchOrExtraction && poi.coordinates) {
+        // Convert to extraction waypoint
+        extractionPOIs.push({
+          id: poi.id,
+          name: poi.name || 'extraction',
+          coordinates: poi.coordinates,
+          type: 'extraction',
+        });
+      } else {
+        remainingPOIs.push(poi);
+      }
+    });
+    
+    // Add extraction POIs to waypoints
+    if (extractionPOIs.length > 0) {
+      waypoints.push(...extractionPOIs);
+    }
+    
     // Name spawn points based on nearby landmarks
     const namedWaypoints = waypoints.map(wp => {
       if (wp.type === 'spawn' && wp.coordinates) {
@@ -435,7 +496,7 @@ export class ArcRaidersClient {
         
         // Search in POIs for nearby landmarks
         // Import calculateDistance logic inline (Euclidean distance in 2D)
-        for (const poi of pois) {
+        for (const poi of remainingPOIs) {
           if (poi.coordinates && poi.name && poi.type !== 'cache') {
             const dx = poi.coordinates.x - spawnCoords.x;
             const dy = poi.coordinates.y - spawnCoords.y;
@@ -463,7 +524,7 @@ export class ArcRaidersClient {
       id: normalizedMapName,
       name: normalizedMapName,
       waypoints: namedWaypoints,
-      pois,
+      pois: remainingPOIs,
     };
     
     // Cache the result
