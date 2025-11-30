@@ -2,6 +2,9 @@
 REM Quick launcher for loot run generator
 REM Usage: Double-click this file, then enter your map and coordinates when prompted
 
+REM Change to the directory where this batch file is located
+cd /d "%~dp0"
+
 echo.
 echo ========================================
 echo   ARC RAIDERS LOOT RUN GENERATOR
