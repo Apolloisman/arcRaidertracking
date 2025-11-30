@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loot Run: dam</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+        .stats {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats p {
+            margin: 5px 0;
+        }
+        .map-container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .map-overlay-wrapper {
+            position: relative;
+            display: block;
+            width: 100%;
+        }
+        .map-overlay-wrapper img {
+            display: block;
+            width: 100%;
+            height: auto;
+            position: relative;
+            z-index: 1;
+        }
+        .path-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            background: none !important;
+        }
+        .map-overlay-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        .map-overlay-wrapper img {
+            display: block;
+            width: 100%;
+            height: auto;
+            position: relative;
+            z-index: 1;
+        }
+        .map-overlay-wrapper svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            background: transparent !important;
+        }
+        .waypoint-line {
+            stroke: #4a9eff;
+            stroke-width: 3;
+            fill: none;
+            opacity: 0.7;
+        }
+        .waypoint {
+            cursor: pointer;
+        }
+        .waypoint-spawn {
+            fill: #00ff00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-cache {
+            fill: #ffaa00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-extraction {
+            fill: #ff0000;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-raider-key {
+            fill: #ff00ff;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-label {
+            fill: #ffffff;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+        .legend {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #ffffff;
+        }
+        .waypoints-list {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .waypoint-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #1e1e1e;
+            border-radius: 4px;
+            border-left: 4px solid #4a9eff;
+        }
+        .waypoint-item h4 {
+            margin: 0 0 5px 0;
+            color: #4a9eff;
+        }
+        .waypoint-item p {
+            margin: 3px 0;
+            font-size: 14px;
+            color: #b0b0b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Loot Run: DAM</h1>
+        
+        <div class="stats">
+            <p><strong>Total Distance:</strong> 4046.35 units</p>
+            <p><strong>Estimated Time:</strong> 13m 29s</p>
+            <p><strong>Waypoints:</strong> 6</p>
+        </div>
+
+        <div class="map-container">
+            <h2>Path Visualization</h2>
+            <div class="map-overlay-wrapper" style="max-width: 1200px; margin: 0 auto;">
+                <!-- Map image as background -->
+                <img id="mapImage" src="map-DAM.png" 
+                     alt="Map" 
+                     style="width: 100%; height: auto; display: block; border: 2px solid #3a3a3a; border-radius: 4px;"
+                     onload="calibrateOverlay(); console.log('Map image loaded:', this.naturalWidth, 'x', this.naturalHeight);"
+                     onerror="console.error('Failed to load map image. Make sure map-dam.png is in the same folder as this HTML file. Path:', this.src)" />
+                
+                <!-- Overlay SVG for path -->
+                <svg class="path-overlay"
+                     viewBox="0 0 1200 900" 
+                     preserveAspectRatio="xMidYMid meet"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <!-- Draw path lines -->
+                    
+                    <line class="waypoint-line" x1="540.2222214810022" y1="809.9992184036769" x2="652.1905872131025" y2="596.7638329295187" />
+                    <line class="waypoint-line" x1="652.1905872131025" y1="596.7638329295187" x2="659.5081498000976" y2="554.7371064334717" />
+                    <line class="waypoint-line" x1="659.5081498000976" y1="554.7371064334717" x2="636.6244364591558" y2="541.4233152169726" />
+                    <line class="waypoint-line" x1="636.6244364591558" y1="541.4233152169726" x2="389.83107750009265" y2="497.24831906576196" />
+                    <line class="waypoint-line" x1="389.83107750009265" y1="497.24831906576196" x2="381.3027645414929" y2="500.970485489587" />
+                    
+                    <!-- Draw waypoints -->
+                    
+                        <circle class="waypoint waypoint-spawn" cx="540.2222214810022" cy="809.9992184036769" r="10" data-step="1" data-name="Your Position" data-coords="(3749.0, 4008.9)" />
+                        <text class="waypoint-label" x="540.2222214810022" y="791.9992184036769" fill="#ffffff" stroke="#000000" stroke-width="0.5">1</text>
+                    
+                        <circle class="waypoint waypoint-cache" cx="652.1905872131025" cy="596.7638329295187" r="10" data-step="2" data-name="base_container" data-coords="(4039.8, 4236.0)" />
+                        <text class="waypoint-label" x="652.1905872131025" y="578.7638329295187" fill="#ffffff" stroke="#000000" stroke-width="0.5">2</text>
+                    
+                        <circle class="waypoint waypoint-cache" cx="659.5081498000976" cy="554.7371064334717" r="10" data-step="3" data-name="weapon_case" data-coords="(4010.9, 2004.7)" />
+                        <text class="waypoint-label" x="659.5081498000976" y="536.7371064334717" fill="#ffffff" stroke="#000000" stroke-width="0.5">3</text>
+                    
+                        <circle class="waypoint waypoint-cache" cx="636.6244364591558" cy="541.4233152169726" r="10" data-step="4" data-name="utility_crate" data-coords="(3952.9, 1831.2)" />
+                        <text class="waypoint-label" x="636.6244364591558" y="523.4233152169726" fill="#ffffff" stroke="#000000" stroke-width="0.5">4</text>
+                    
+                        <circle class="waypoint waypoint-cache" cx="389.83107750009265" cy="497.24831906576196" r="10" data-step="5" data-name="breachable_container" data-coords="(2813.9, 2233.2)" />
+                        <text class="waypoint-label" x="389.83107750009265" y="479.24831906576196" fill="#ffffff" stroke="#000000" stroke-width="0.5">5</text>
+                    
+                        <circle class="waypoint waypoint-cache" cx="381.3027645414929" cy="500.970485489587" r="10" data-step="6" data-name="base_container" data-coords="(2765.9, 2260.2)" />
+                        <text class="waypoint-label" x="381.3027645414929" y="482.970485489587" fill="#ffffff" stroke="#000000" stroke-width="0.5">6</text>
+                </svg>
+            </div>
+            <p style="margin-top: 10px; font-size: 12px; color: #888;">
+                💡 Reference: Map bounds (0, 0) to (6000, 4500)
+                 | Calibrated using 4 spawn points
+            </p>
+            <p style="margin-top: 5px; font-size: 11px; color: #666;">
+                ✅ Using multi-point calibration for better accuracy
+            </p>
+        </div>
+
+        <div class="legend">
+            <h3>Legend</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00ff00;"></div>
+                <span>Spawn Point</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ffaa00;"></div>
+                <span>Loot Cache</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff0000;"></div>
+                <span>Extraction</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff00ff;"></div>
+                <span>Raider Key</span>
+            </div>
+        </div>
+
+        <div class="waypoints-list">
+            <h3>Step-by-Step Instructions</h3>
+            
+            <div class="waypoint-item">
+                <h4>🚀 Step 1: Start from your current position</h4>
+                <p><strong>Location:</strong> Your Position</p>
+                <p><strong>Coordinates:</strong> (3749.0, 4008.9)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 2: Loot base_container</h4>
+                <p><strong>Location:</strong> base_container</p>
+                <p><strong>Coordinates:</strong> (4039.8, 4236.0)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 3: Loot weapon_case</h4>
+                <p><strong>Location:</strong> weapon_case</p>
+                <p><strong>Coordinates:</strong> (4010.9, 2004.7)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 4: Loot utility_crate</h4>
+                <p><strong>Location:</strong> utility_crate</p>
+                <p><strong>Coordinates:</strong> (3952.9, 1831.2)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 5: Loot breachable_container</h4>
+                <p><strong>Location:</strong> breachable_container</p>
+                <p><strong>Coordinates:</strong> (2813.9, 2233.2)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 6: Loot base_container</h4>
+                <p><strong>Location:</strong> base_container</p>
+                <p><strong>Coordinates:</strong> (2765.9, 2260.2)</p>
+                
+                
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Calibration function - can be used to fine-tune overlay
+        function calibrateOverlay() {
+            const img = document.getElementById('mapImage');
+            if (img) {
+                // If image loads, we can adjust bounds based on actual image size
+                const actualWidth = img.naturalWidth || 1200;
+                const actualHeight = img.naturalHeight || 900;
+                console.log('Map image loaded:', actualWidth, 'x', actualHeight);
+            }
+        }
+        
+        // Add hover effects
+        document.querySelectorAll('.waypoint').forEach(point => {
+            point.addEventListener('mouseenter', function() {
+                this.setAttribute('r', '12');
+                const name = this.getAttribute('data-name');
+                const coords = this.getAttribute('data-coords');
+                // Could show tooltip here
+            });
+            point.addEventListener('mouseleave', function() {
+                this.setAttribute('r', '10');
+            });
+        });
+    </script>
+</body>
+</html>

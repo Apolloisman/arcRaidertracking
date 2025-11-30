@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loot Run: dam</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+        .stats {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats p {
+            margin: 5px 0;
+        }
+        .map-container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        svg {
+            width: 100%;
+            height: auto;
+            background: #1e1e1e;
+            border: 2px solid #3a3a3a;
+            border-radius: 4px;
+        }
+        .path-line {
+            stroke: #4a9eff;
+            stroke-width: 3;
+            fill: none;
+            stroke-dasharray: 5,5;
+            opacity: 0.7;
+        }
+        .waypoint {
+            cursor: pointer;
+        }
+        .waypoint-spawn {
+            fill: #00ff00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-cache {
+            fill: #ffaa00;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-extraction {
+            fill: #ff0000;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-raider-key {
+            fill: #ff00ff;
+            stroke: #ffffff;
+            stroke-width: 2;
+        }
+        .waypoint-label {
+            fill: #ffffff;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+        .waypoint-line {
+            stroke: #4a9eff;
+            stroke-width: 2;
+            fill: none;
+        }
+        .legend {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #ffffff;
+        }
+        .waypoints-list {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .waypoint-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #1e1e1e;
+            border-radius: 4px;
+            border-left: 4px solid #4a9eff;
+        }
+        .waypoint-item h4 {
+            margin: 0 0 5px 0;
+            color: #4a9eff;
+        }
+        .waypoint-item p {
+            margin: 3px 0;
+            font-size: 14px;
+            color: #b0b0b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Loot Run: DAM</h1>
+        
+        <div class="stats">
+            <p><strong>Total Distance:</strong> 3260.02 units</p>
+            <p><strong>Estimated Time:</strong> 11m 52s</p>
+            <p><strong>Waypoints:</strong> 5</p>
+        </div>
+
+        <div class="map-container">
+            <h2>Path Visualization</h2>
+            <svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+                <!-- Draw path lines -->
+                
+                <line class="waypoint-line" x1="83.33333333333333" y1="358.80320081285834" x2="578.7383634165791" y2="173.98845358502987" />
+                <line class="waypoint-line" x1="578.7383634165791" y1="173.98845358502987" x2="572.096449763514" y2="154.05146715156354" />
+                <line class="waypoint-line" x1="572.096449763514" y1="154.05146715156354" x2="585.3802770696442" y2="146.5750972390138" />
+                <line class="waypoint-line" x1="585.3802770696442" y1="146.5750972390138" x2="916.6666666666666" y2="83.33333333333333" />
+                
+                <!-- Draw waypoints -->
+                
+                    <circle class="waypoint waypoint-spawn" cx="83.33333333333333" cy="358.80320081285834" r="8" data-step="1" data-name="Your Position" data-coords="(1000.0, 3000.0)" />
+                    <text class="waypoint-label" x="83.33333333333333" y="343.80320081285834">1</text>
+                
+                    <circle class="waypoint waypoint-cache" cx="578.7383634165791" cy="173.98845358502987" r="8" data-step="2" data-name="breachable_container" data-coords="(2789.9, 2332.2)" />
+                    <text class="waypoint-label" x="578.7383634165791" y="158.98845358502987">2</text>
+                
+                    <circle class="waypoint waypoint-cache" cx="572.096449763514" cy="154.05146715156354" r="8" data-step="3" data-name="base_container" data-coords="(2765.9, 2260.2)" />
+                    <text class="waypoint-label" x="572.096449763514" y="139.05146715156354">3</text>
+                
+                    <circle class="waypoint waypoint-cache" cx="585.3802770696442" cy="146.5750972390138" r="8" data-step="4" data-name="breachable_container" data-coords="(2813.9, 2233.2)" />
+                    <text class="waypoint-label" x="585.3802770696442" y="131.5750972390138">4</text>
+                
+                    <circle class="waypoint waypoint-cache" cx="916.6666666666666" cy="83.33333333333333" r="8" data-step="5" data-name="weapon_case" data-coords="(4010.9, 2004.7)" />
+                    <text class="waypoint-label" x="916.6666666666666" y="68.33333333333333">5</text>
+            </svg>
+        </div>
+
+        <div class="legend">
+            <h3>Legend</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00ff00;"></div>
+                <span>Spawn Point</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ffaa00;"></div>
+                <span>Loot Cache</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff0000;"></div>
+                <span>Extraction</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff00ff;"></div>
+                <span>Raider Key</span>
+            </div>
+        </div>
+
+        <div class="waypoints-list">
+            <h3>Step-by-Step Instructions</h3>
+            
+            <div class="waypoint-item">
+                <h4>🚀 Step 1: Start from your current position</h4>
+                <p><strong>Location:</strong> Your Position</p>
+                <p><strong>Coordinates:</strong> (1000.0, 3000.0)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 2: Loot breachable_container</h4>
+                <p><strong>Location:</strong> breachable_container</p>
+                <p><strong>Coordinates:</strong> (2789.9, 2332.2)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 3: Loot base_container</h4>
+                <p><strong>Location:</strong> base_container</p>
+                <p><strong>Coordinates:</strong> (2765.9, 2260.2)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 4: Loot breachable_container</h4>
+                <p><strong>Location:</strong> breachable_container</p>
+                <p><strong>Coordinates:</strong> (2813.9, 2233.2)</p>
+                
+                
+            </div>
+            
+            <div class="waypoint-item">
+                <h4>📦 Step 5: Loot weapon_case</h4>
+                <p><strong>Location:</strong> weapon_case</p>
+                <p><strong>Coordinates:</strong> (4010.9, 2004.7)</p>
+                
+                
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add hover effects
+        document.querySelectorAll('.waypoint').forEach(point => {
+            point.addEventListener('mouseenter', function() {
+                const step = this.getAttribute('data-step');
+                const name = this.getAttribute('data-name');
+                const coords = this.getAttribute('data-coords');
+                this.setAttribute('r', '12');
+                // Could show tooltip here
+            });
+            point.addEventListener('mouseleave', function() {
+                this.setAttribute('r', '8');
+            });
+        });
+    </script>
+</body>
+</html>
