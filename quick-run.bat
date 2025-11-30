@@ -1,6 +1,7 @@
 @echo off
 REM Quick launcher for loot run generator
 REM Usage: Double-click this file, then enter your map and coordinates when prompted
+REM Test commit to verify Git config
 
 REM Change to the directory where this batch file is located
 cd /d "%~dp0"
