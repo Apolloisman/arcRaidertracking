@@ -234,6 +234,7 @@ Available maps: dam, spaceport, buried-city, blue-gate
           process.exit(1);
         }
         useCoordinates = true;
+        console.log(`\n✅ Parsed coordinates: X=${x}, Y=${y}${z !== undefined ? `, Z=${z}` : ''}`);
       } else {
         // Not valid coordinates, try as landmark name
         const coords = await findLocationByName(mapName, locationArg);
@@ -287,7 +288,8 @@ Available maps: dam, spaceport, buried-city, blue-gate
 
   console.log('\n🔄 Generating loot run...\n');
   if (useCoordinates) {
-    console.log(`📍 Starting location: (${x}, ${y}${z !== undefined ? `, ${z}` : ''})`);
+    console.log(`📍 Starting location (INFILL): (${x}, ${y}${z !== undefined ? `, ${z}` : ''})`);
+    console.log(`   These coordinates will be used as your spawn point.`);
   } else {
     console.log(`📍 Using nearest spawn point (no coordinates needed!)`);
   }
@@ -302,13 +304,25 @@ Available maps: dam, spaceport, buried-city, blue-gate
       spawnPoints = (mapData.waypoints || []).filter(wp => wp.type === 'spawn' && wp.coordinates);
     }
 
+    // Prepare coordinates object
+    const startCoords = useCoordinates ? {
+      x,
+      y,
+      ...(z !== undefined && { z }),
+    } : undefined;
+    
+    if (startCoords) {
+      console.log(`\n📋 Passing coordinates to pathfinding:`);
+      console.log(`   startAtCoordinates: { x: ${startCoords.x}, y: ${startCoords.y}${startCoords.z !== undefined ? `, z: ${startCoords.z}` : ''} }`);
+      console.log(`   startAtSpawn: false`);
+    } else {
+      console.log(`\n📋 Using spawn point (no custom coordinates)`);
+      console.log(`   startAtSpawn: true`);
+    }
+    
     const options = {
       startAtSpawn: !useCoordinates, // Use spawn point if no coordinates
-      startAtCoordinates: useCoordinates ? {
-        x,
-        y,
-        ...(z !== undefined && { z }),
-      } : undefined,
+      startAtCoordinates: startCoords,
       endAtExtraction: true,
       maxCaches: 8, // Spawn + 8 loot locations + extraction = 10 total waypoints (extraction is always #10)
       avoidDangerousAreas: true,
@@ -331,6 +345,26 @@ Available maps: dam, spaceport, buried-city, blue-gate
       process.exit(1);
     }
 
+    // Verify the infill coordinates match what was entered
+    if (useCoordinates && lootRun.waypoints.length > 0) {
+      const firstWaypoint = lootRun.waypoints[0];
+      const enteredCoords = { x, y, z };
+      const actualCoords = firstWaypoint.coordinates;
+      const distance = Math.sqrt(
+        Math.pow(actualCoords.x - enteredCoords.x, 2) + 
+        Math.pow(actualCoords.y - enteredCoords.y, 2)
+      );
+      
+      if (distance > 1) {
+        console.warn(`\n⚠️  WARNING: Infill coordinates don't match!`);
+        console.warn(`   Entered: (${enteredCoords.x}, ${enteredCoords.y}${enteredCoords.z !== undefined ? `, ${enteredCoords.z}` : ''})`);
+        console.warn(`   Actual:  (${actualCoords.x.toFixed(2)}, ${actualCoords.y.toFixed(2)}${actualCoords.z !== undefined ? `, ${actualCoords.z.toFixed(2)}` : ''})`);
+        console.warn(`   Distance: ${distance.toFixed(2)} units`);
+      } else {
+        console.log(`\n✅ Infill coordinates verified: (${actualCoords.x.toFixed(2)}, ${actualCoords.y.toFixed(2)}${actualCoords.z !== undefined ? `, ${actualCoords.z.toFixed(2)}` : ''})`);
+      }
+    }
+    
     console.log(client.formatLootRunPath(lootRun));
     
     // Automatically generate map overlay (pass spawn points for calibration)
@@ -393,6 +427,169 @@ function getMapImageInfo(mapName) {
   };
 }
 
+// Map waypoint/POI types to icon folder names
+function getIconFolderForType(type, subcategory) {
+  const typeLower = (type || '').toLowerCase();
+  const subcategoryLower = (subcategory || '').toLowerCase();
+  
+  // Direct type mappings
+  if (typeLower === 'spawn' || subcategoryLower.includes('spawn')) {
+    return 'spawn';
+  }
+  if (typeLower === 'extraction' || subcategoryLower.includes('extract') || subcategoryLower.includes('hatch') || subcategoryLower.includes('exfil')) {
+    return 'extraction';
+  }
+  if (typeLower === 'cache' || subcategoryLower.includes('cache') || subcategoryLower.includes('container') || 
+      subcategoryLower.includes('crate') || subcategoryLower.includes('case') || subcategoryLower.includes('locker') ||
+      subcategoryLower.includes('bag') || subcategoryLower.includes('basket') || subcategoryLower.includes('box')) {
+    return 'loot-containers';
+  }
+  if (typeLower === 'arc' || subcategoryLower.includes('arc') || subcategoryLower.includes('husk') || 
+      subcategoryLower.includes('tick') || subcategoryLower.includes('wasp') || subcategoryLower.includes('sentinel') ||
+      subcategoryLower.includes('bison') || subcategoryLower.includes('rollbot') || subcategoryLower.includes('turret') ||
+      subcategoryLower.includes('queen') || subcategoryLower.includes('bastion') || subcategoryLower.includes('rocketeer') ||
+      subcategoryLower.includes('fireball') || subcategoryLower.includes('hornet') || subcategoryLower.includes('bombardier') ||
+      subcategoryLower.includes('matriarch') || subcategoryLower.includes('harvester') || subcategoryLower.includes('bees')) {
+    return 'enemies-arcs';
+  }
+  if (subcategoryLower.includes('locked') || subcategoryLower.includes('security') || subcategoryLower.includes('key')) {
+    return 'locked-rooms';
+  }
+  if (subcategoryLower.includes('supply') || subcategoryLower.includes('depot') || subcategoryLower.includes('station')) {
+    return 'supply-stations';
+  }
+  if (subcategoryLower.includes('plant') || subcategoryLower.includes('mushroom') || subcategoryLower.includes('apricot') ||
+      subcategoryLower.includes('agave') || subcategoryLower.includes('mullein') || subcategoryLower.includes('lemons') ||
+      subcategoryLower.includes('olive') || subcategoryLower.includes('moss') || subcategoryLower.includes('fertilizer') ||
+      subcategoryLower.includes('roots') || subcategoryLower.includes('prickly') || subcategoryLower.includes('pear')) {
+    return 'resources-plants';
+  }
+  if (typeLower === 'objective' || subcategoryLower.includes('objective') || subcategoryLower.includes('quest') ||
+      subcategoryLower.includes('switch') || subcategoryLower.includes('button') || subcategoryLower.includes('terminal')) {
+    return 'objectives';
+  }
+  
+  return 'other';
+}
+
+// Find icon file for a waypoint/POI, with fallback to category default
+function findIconFile(name, type, subcategory) {
+  if (!name) return getFallbackIcon(type, subcategory);
+  
+  const iconFolder = getIconFolderForType(type, subcategory);
+  const iconsPath = path.join(scriptDir, 'icons-pathfinding', iconFolder);
+  
+  if (!fs.existsSync(iconsPath)) {
+    return getFallbackIcon(type, subcategory);
+  }
+  
+  // Clean the name to match icon file naming
+  const cleanName = name
+    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid filename chars
+    .trim();
+  
+  // Try exact match first
+  const exactPath = path.join(iconsPath, `${cleanName}.png`);
+  if (fs.existsSync(exactPath)) {
+    return `icons-pathfinding/${iconFolder}/${cleanName}.png`;
+  }
+  
+  // Try case-insensitive match
+  try {
+    const files = fs.readdirSync(iconsPath).filter(f => f.endsWith('.png'));
+    const cleanNameLower = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    // Try multiple matching strategies
+    let match = files.find(file => {
+      const fileBase = file.replace('.png', '');
+      const fileBaseClean = fileBase.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      // Exact case-insensitive match
+      if (file.toLowerCase() === `${cleanName.toLowerCase()}.png`) return true;
+      
+      // Alphanumeric-only match
+      if (fileBaseClean === cleanNameLower) return true;
+      
+      // Contains match (for partial names)
+      if (fileBaseClean.includes(cleanNameLower) || cleanNameLower.includes(fileBaseClean)) {
+        // Prefer longer matches
+        return true;
+      }
+      
+      // Try matching without common prefixes/suffixes
+      const nameNoPrefix = cleanNameLower.replace(/^(near|at|on|in|the)\s*/, '').trim();
+      if (fileBaseClean === nameNoPrefix || fileBaseClean.includes(nameNoPrefix)) return true;
+      
+      return false;
+    });
+    
+    if (match) {
+      return `icons-pathfinding/${iconFolder}/${match}`;
+    }
+    
+    // If no match found, try fuzzy matching - find the closest match
+    if (files.length > 0) {
+      // Calculate similarity scores
+      const scores = files.map(file => {
+        const fileBase = file.replace('.png', '').toLowerCase();
+        const nameLower = cleanName.toLowerCase();
+        
+        // Check if name contains file name or vice versa
+        if (nameLower.includes(fileBase) || fileBase.includes(nameLower)) {
+          return { file, score: Math.max(nameLower.length, fileBase.length) };
+        }
+        
+        // Check word-by-word match
+        const nameWords = nameLower.split(/\s+/);
+        const fileWords = fileBase.split(/\s+/);
+        const commonWords = nameWords.filter(w => fileWords.some(fw => fw.includes(w) || w.includes(fw)));
+        if (commonWords.length > 0) {
+          return { file, score: commonWords.length };
+        }
+        
+        return { file, score: 0 };
+      });
+      
+      // Sort by score and take the best match
+      scores.sort((a, b) => b.score - a.score);
+      if (scores[0] && scores[0].score > 0) {
+        return `icons-pathfinding/${iconFolder}/${scores[0].file}`;
+      }
+    }
+    
+    // If no match found, use any icon from the category folder as fallback
+    if (files.length > 0) {
+      return `icons-pathfinding/${iconFolder}/${files[0]}`;
+    }
+  } catch (error) {
+    // Folder doesn't exist or can't read
+  }
+  
+  // Final fallback: return category default icon
+  return getFallbackIcon(type, subcategory);
+}
+
+// Get a fallback icon for a category type
+function getFallbackIcon(type, subcategory) {
+  const iconFolder = getIconFolderForType(type, subcategory);
+  const iconsPath = path.join(scriptDir, 'icons-pathfinding', iconFolder);
+  
+  if (fs.existsSync(iconsPath)) {
+    try {
+      const files = fs.readdirSync(iconsPath).filter(f => f.endsWith('.png'));
+      if (files.length > 0) {
+        // Return the first icon from the category folder
+        return `icons-pathfinding/${iconFolder}/${files[0]}`;
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+  }
+  
+  // Ultimate fallback: return null (will be handled by caller)
+  return null;
+}
+
 function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) {
   try {
     const FALLBACK_BOUNDS = {
@@ -422,26 +619,64 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) 
     }
 
     let bounds;
+    const fallback = FALLBACK_BOUNDS[mapName] || FALLBACK_BOUNDS.dam;
+    
     if (derivedCoordinates.length >= 2) {
       const xs = derivedCoordinates.map(c => c.x);
       const ys = derivedCoordinates.map(c => c.y);
+      const calculatedMinX = Math.min(...xs);
+      const calculatedMaxX = Math.max(...xs);
+      const calculatedMinY = Math.min(...ys);
+      const calculatedMaxY = Math.max(...ys);
+      
+      // Calculate the center of the coordinate range
+      const centerX = (calculatedMinX + calculatedMaxX) / 2;
+      const centerY = (calculatedMinY + calculatedMaxY) / 2;
+      
+      // Calculate the span from center
+      const spanX = calculatedMaxX - calculatedMinX;
+      const spanY = calculatedMaxY - calculatedMinY;
+      
+      // Use the actual coordinate range (not forcing to start at 0,0)
+      // This ensures we use the full range of actual coordinates
       bounds = {
-        minX: Math.min(...xs),
-        maxX: Math.max(...xs),
-        minY: Math.min(...ys),
-        maxY: Math.max(...ys),
+        minX: calculatedMinX,
+        maxX: calculatedMaxX,
+        minY: calculatedMinY,
+        maxY: calculatedMaxY,
+        centerX: centerX,
+        centerY: centerY,
+        spanX: spanX,
+        spanY: spanY,
         imageWidth: mapImageInfo.width,
         imageHeight: mapImageInfo.height,
         dynamic: true,
       };
+      
+      console.log(`📊 Map bounds: X(${bounds.minX.toFixed(0)}-${bounds.maxX.toFixed(0)}) Y(${bounds.minY.toFixed(0)}-${bounds.maxY.toFixed(0)})`);
+      console.log(`   Center: (${centerX.toFixed(0)}, ${centerY.toFixed(0)})`);
+      console.log(`   Calculated from ${derivedCoordinates.length} coordinates`);
+      console.log(`   Using actual coordinate range to fill entire image`);
+      console.log(`   Image size: ${bounds.imageWidth}x${bounds.imageHeight}px`);
     } else {
-      const fallback = FALLBACK_BOUNDS[mapName] || FALLBACK_BOUNDS.dam;
+      // Use fallback bounds
+      const centerX = (fallback.minX + fallback.maxX) / 2;
+      const centerY = (fallback.minY + fallback.maxY) / 2;
       bounds = {
-        ...fallback,
+        minX: fallback.minX,
+        maxX: fallback.maxX,
+        minY: fallback.minY,
+        maxY: fallback.maxY,
+        centerX: centerX,
+        centerY: centerY,
+        spanX: fallback.maxX - fallback.minX,
+        spanY: fallback.maxY - fallback.minY,
         imageWidth: mapImageInfo.width,
         imageHeight: mapImageInfo.height,
         dynamic: false,
       };
+      console.log(`📊 Using fallback bounds: X(${bounds.minX.toFixed(0)}-${bounds.maxX.toFixed(0)}) Y(${bounds.minY.toFixed(0)}-${bounds.maxY.toFixed(0)})`);
+      console.log(`   Center: (${centerX.toFixed(0)}, ${centerY.toFixed(0)})`);
     }
 
     const coordToGridCell = (coord) => {
@@ -456,135 +691,180 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) 
       return `${columnLabel}${rowLabel}`;
     };
     
-    // Multi-point calibration using spawn points and user's actual infill location
-    // Use at least 2 spawn points for better accuracy
-    let referencePoints = [];
+    // Two-point calibration system: origin point (0,0) + scale reference point
+    // This ensures accurate placement by using one point as origin and another to calculate scale
     
-    // If we have the user's actual infill coordinates, use them as a primary reference
+    // Get user's infill coordinates (if provided)
     const infillWaypoint = lootRun.waypoints[0];
     const userInfillCoords = infillWaypoint && infillWaypoint.coordinates ? infillWaypoint.coordinates : null;
     
-    if (spawnPoints.length >= 2) {
-      // Use up to 4 spawn points for calibration (more points = better accuracy)
-      const pointsToUse = spawnPoints.slice(0, Math.min(4, spawnPoints.length));
-      
-      // Calculate pixel positions for spawn points based on their relative positions
-      // This assumes spawn points are distributed across the map
-      const allCoords = spawnPoints.map(sp => sp.coordinates);
-      const minX = Math.min(...allCoords.map(c => c.x));
-      const maxX = Math.max(...allCoords.map(c => c.x));
-      const minY = Math.min(...allCoords.map(c => c.y));
-      const maxY = Math.max(...allCoords.map(c => c.y));
-      
-      // Create reference points by mapping spawn coordinates to pixel positions
-      referencePoints = pointsToUse.map(sp => {
-        const coord = sp.coordinates;
-        // Normalize coordinates to 0-1 range
-        const normX = (coord.x - minX) / (maxX - minX || 1);
-        const normY = (coord.y - minY) / (maxY - minY || 1);
-        
-        // Map to pixel positions (with some margin)
-        const margin = 0.1; // 10% margin on all sides
-        const pixelX = margin * bounds.imageWidth + normX * (1 - 2 * margin) * bounds.imageWidth;
-        const pixelY = margin * bounds.imageHeight + normY * (1 - 2 * margin) * bounds.imageHeight;
-        
-        return {
-          coord: { x: coord.x, y: coord.y },
-          pixel: { x: pixelX, y: pixelY }
-        };
-      });
-      
-      // If user provided custom infill coordinates, add them as a high-priority reference
-      // This ensures the infill point is accurately positioned
-      if (userInfillCoords) {
-        const infillNormX = (userInfillCoords.x - minX) / (maxX - minX || 1);
-        const infillNormY = (userInfillCoords.y - minY) / (maxY - minY || 1);
-        const margin = 0.1;
-        const infillPixelX = margin * bounds.imageWidth + infillNormX * (1 - 2 * margin) * bounds.imageWidth;
-        const infillPixelY = margin * bounds.imageHeight + infillNormY * (1 - 2 * margin) * bounds.imageHeight;
-        
-        // Add infill as first reference point (highest priority)
-        referencePoints.unshift({
-          coord: { x: userInfillCoords.x, y: userInfillCoords.y },
-          pixel: { x: infillPixelX, y: infillPixelY }
-        });
+    // Find origin point (corner - minimum X and Y)
+    const allCoords = [
+      ...spawnPoints.map(sp => ({ ...sp.coordinates, name: sp.name, type: 'spawn' })),
+      ...(mapData?.waypoints || []).filter(wp => wp.coordinates).map(wp => ({ ...wp.coordinates, name: wp.name, type: wp.type })),
+      ...(mapData?.pois || []).filter(poi => poi.coordinates).slice(0, 50).map(poi => ({ ...poi.coordinates, name: poi.name, type: poi.type }))
+    ].filter(c => c.x !== undefined && c.y !== undefined);
+    
+    if (allCoords.length === 0) {
+      console.warn('⚠️  No coordinates available for calibration');
+    }
+    
+    // Find point closest to minimum X and Y (corner/origin)
+    let originPoint = null;
+    let minDistance = Infinity;
+    const minX = Math.min(...allCoords.map(c => c.x));
+    const minY = Math.min(...allCoords.map(c => c.y));
+    
+    allCoords.forEach(coord => {
+      const dist = Math.sqrt(
+        Math.pow(coord.x - minX, 2) + 
+        Math.pow(coord.y - minY, 2)
+      );
+      if (dist < minDistance) {
+        minDistance = dist;
+        originPoint = coord;
       }
-    } else if (spawnPoints.length === 1) {
-      // Single spawn point - use center of map as second reference
-      const sp = spawnPoints[0];
-      const centerCoord = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
-      referencePoints = [
-        {
-          coord: { x: sp.coordinates.x, y: sp.coordinates.y },
-          pixel: { x: bounds.imageWidth * 0.5, y: bounds.imageHeight * 0.5 }
-        },
-        {
-          coord: centerCoord,
-          pixel: { x: bounds.imageWidth * 0.5, y: bounds.imageHeight * 0.5 }
+    });
+    
+    // Find scale reference point (use user's infill if available, otherwise use point farthest from origin)
+    let scaleRefPoint = null;
+    if (userInfillCoords) {
+      // Use user's infill as scale reference (most important point)
+      scaleRefPoint = { x: userInfillCoords.x, y: userInfillCoords.y, name: 'Your Infill', type: 'spawn' };
+      console.log(`\n📍 Using two-point calibration:`);
+      console.log(`   Origin point: (${originPoint.x.toFixed(1)}, ${originPoint.y.toFixed(1)}) - ${originPoint.name || 'Corner'}`);
+      console.log(`   Scale reference: (${scaleRefPoint.x.toFixed(1)}, ${scaleRefPoint.y.toFixed(1)}) - Your Infill`);
+    } else if (spawnPoints.length > 0) {
+      // Use spawn point farthest from origin as scale reference
+      let maxDist = 0;
+      spawnPoints.forEach(sp => {
+        if (!sp.coordinates) return;
+        const dist = Math.sqrt(
+          Math.pow(sp.coordinates.x - originPoint.x, 2) + 
+          Math.pow(sp.coordinates.y - originPoint.y, 2)
+        );
+        if (dist > maxDist) {
+          maxDist = dist;
+          scaleRefPoint = { ...sp.coordinates, name: sp.name, type: 'spawn' };
         }
-      ];
+      });
+      console.log(`\n📍 Using two-point calibration:`);
+      console.log(`   Origin point: (${originPoint.x.toFixed(1)}, ${originPoint.y.toFixed(1)}) - ${originPoint.name || 'Corner'}`);
+      console.log(`   Scale reference: (${scaleRefPoint.x.toFixed(1)}, ${scaleRefPoint.y.toFixed(1)}) - ${scaleRefPoint.name || 'Farthest Spawn'}`);
+    }
+    
+    // Calculate where origin point should be on the image (bottom-left corner)
+    // Assume origin is at bottom-left of the map image
+    const originPixelX = bounds.imageWidth * 0.05; // 5% from left edge
+    const originPixelY = bounds.imageHeight * 0.95; // 5% from bottom edge
+    
+    // Calculate scale based on the distance between origin and scale reference point
+    let scaleX = 1;
+    let scaleY = 1;
+    let scaleRefPixelX = originPixelX;
+    let scaleRefPixelY = originPixelY;
+    
+    if (scaleRefPoint) {
+      // Calculate API distance from origin to scale reference
+      const apiDx = scaleRefPoint.x - originPoint.x;
+      const apiDy = scaleRefPoint.y - originPoint.y;
+      const apiDistance = Math.sqrt(apiDx * apiDx + apiDy * apiDy);
       
-      // Add user infill if available
-      if (userInfillCoords) {
-        const infillNormX = (userInfillCoords.x - bounds.minX) / (bounds.maxX - bounds.minX || 1);
-        const infillNormY = (userInfillCoords.y - bounds.minY) / (bounds.maxY - bounds.minY || 1);
-        referencePoints.unshift({
-          coord: { x: userInfillCoords.x, y: userInfillCoords.y },
-          pixel: { 
-            x: infillNormX * bounds.imageWidth, 
-            y: (1 - infillNormY) * bounds.imageHeight 
-          }
-        });
+      // Calculate where scale reference should be on image (top-right area)
+      // Use the full image span to determine scale
+      const spanX = bounds.maxX - bounds.minX || 1;
+      const spanY = bounds.maxY - bounds.minY || 1;
+      
+      // Calculate normalized position of scale reference relative to origin
+      const normX = apiDx / spanX;
+      const normY = apiDy / spanY;
+      
+      // Map to pixel position (use most of the image, leave margins)
+      const margin = 0.05;
+      scaleRefPixelX = originPixelX + normX * (bounds.imageWidth * (1 - 2 * margin));
+      scaleRefPixelY = originPixelY - normY * (bounds.imageHeight * (1 - 2 * margin)); // Flip Y
+      
+      // Calculate scale factors
+      if (Math.abs(apiDx) > 0.001) {
+        const pixelDx = scaleRefPixelX - originPixelX;
+        scaleX = pixelDx / apiDx;
+      }
+      if (Math.abs(apiDy) > 0.001) {
+        const pixelDy = originPixelY - scaleRefPixelY; // Note: Y is flipped
+        scaleY = pixelDy / apiDy;
+      }
+      
+      console.log(`   Scale factors: X=${scaleX.toFixed(6)} px/unit, Y=${scaleY.toFixed(6)} px/unit`);
+      console.log(`   Origin pixel: (${originPixelX.toFixed(1)}, ${originPixelY.toFixed(1)})`);
+      console.log(`   Scale ref pixel: (${scaleRefPixelX.toFixed(1)}, ${scaleRefPixelY.toFixed(1)})`);
+    }
+    
+    // Store calibration parameters
+    const twoPointCalibration = {
+      originApi: { x: originPoint.x, y: originPoint.y },
+      originPixel: { x: originPixelX, y: originPixelY },
+      scaleRefApi: scaleRefPoint ? { x: scaleRefPoint.x, y: scaleRefPoint.y } : null,
+      scaleRefPixel: scaleRefPoint ? { x: scaleRefPixelX, y: scaleRefPixelY } : null,
+      scaleX: scaleX,
+      scaleY: scaleY
+    };
+    
+    // Load calibration if available (for custom map images)
+    const calibrationPath = path.join(scriptDir, `map-calibration-${mapName}.json`);
+    let calibration = null;
+    if (fs.existsSync(calibrationPath)) {
+      try {
+        calibration = JSON.parse(fs.readFileSync(calibrationPath, 'utf8'));
+        console.log(`\n✅ Using custom map calibration from: map-calibration-${mapName}.json`);
+        console.log(`   Calibrated with ${calibration.referencePoints.length} reference points`);
+      } catch (error) {
+        console.warn(`⚠️  Could not load calibration: ${error.message}`);
       }
     }
     
-    // Calculate coordinate to pixel transformation using multiple reference points
+    // Calculate coordinate to pixel transformation
+    // Uses calibration if available, otherwise uses center-based mapping
     const coordToPixel = (coord) => {
-      if (referencePoints.length >= 2) {
-        // Use affine transformation with multiple reference points
-        // Calculate weighted average based on distance to reference points
-        let totalWeight = 0;
-        let weightedX = 0;
-        let weightedY = 0;
+      // If calibration exists, use it
+      if (calibration && calibration.transformation) {
+        const t = calibration.transformation;
         
-        for (const ref of referencePoints) {
-          const dx = coord.x - ref.coord.x;
-          const dy = coord.y - ref.coord.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          // Use inverse distance weighting (closer points have more influence)
-          const weight = distance > 0 ? 1 / (distance + 1) : 1000;
-          
-          // Calculate pixel offset from this reference point
-          const scaleX = bounds.imageWidth / (bounds.maxX - bounds.minX || 1);
-          const scaleY = bounds.imageHeight / (bounds.maxY - bounds.minY || 1);
-          const offsetX = dx * scaleX;
-          const offsetY = dy * scaleY;
-          
-          const pixelX = ref.pixel.x + offsetX;
-          const pixelY = ref.pixel.y - offsetY; // Flip Y axis
-          
-          weightedX += pixelX * weight;
-          weightedY += pixelY * weight;
-          totalWeight += weight;
+        // Check if it's origin-based calibration
+        if (calibration.originBased) {
+          // Origin-based: pixel = (api - originApi) * scale + originPixel
+          const apiRelativeX = coord.x - (t.originApiX || 0);
+          const apiRelativeY = coord.y - (t.originApiY || 0);
+          const pixelX = apiRelativeX * t.scaleX + t.originOffsetX;
+          const pixelY = apiRelativeY * t.scaleY + t.originOffsetY;
+          return { x: pixelX, y: pixelY };
+        } else {
+          // Center-based (legacy): pixel = (api - apiCenter) * scale + pixelCenter
+          const pixelX = (coord.x - (t.apiCenterX || 0)) * t.scaleX + (t.pixelCenterX || 0);
+          const pixelY = (coord.y - (t.apiCenterY || 0)) * t.scaleY + (t.pixelCenterY || 0);
+          return { x: pixelX, y: pixelY };
         }
-        
-        return {
-          x: weightedX / totalWeight,
-          y: weightedY / totalWeight
-        };
-      } else {
-        // Fallback to simple normalization
-        let normalizedX = (coord.x - bounds.minX) / (bounds.maxX - bounds.minX || 1);
-        let normalizedY = (coord.y - bounds.minY) / (bounds.maxY - bounds.minY || 1);
-        
-        normalizedX = Math.max(0, Math.min(1, normalizedX));
-        normalizedY = Math.max(0, Math.min(1, normalizedY));
-        
-        return {
-          x: normalizedX * bounds.imageWidth,
-          y: (1 - normalizedY) * bounds.imageHeight // Flip Y axis
-        };
       }
+      
+      // Fallback: Center-based mapping (original logic)
+      const centerX = bounds.centerX || (bounds.minX + bounds.maxX) / 2;
+      const centerY = bounds.centerY || (bounds.minY + bounds.maxY) / 2;
+      const spanX = bounds.spanX || (bounds.maxX - bounds.minX) || 1;
+      const spanY = bounds.spanY || (bounds.maxY - bounds.minY) || 1;
+      
+      // Calculate scale factors to fill the entire image
+      const scaleX = bounds.imageWidth / spanX;
+      const scaleY = bounds.imageHeight / spanY;
+      
+      // Transform coordinates relative to center
+      const dx = coord.x - centerX;
+      const dy = coord.y - centerY;
+      
+      // Map to pixel coordinates, centering the coordinate system in the image
+      // Image center is at (imageWidth/2, imageHeight/2)
+      const pixelX = (bounds.imageWidth / 2) + (dx * scaleX);
+      const pixelY = (bounds.imageHeight / 2) - (dy * scaleY); // Flip Y axis (game Y increases up, image Y increases down)
+      
+      return { x: pixelX, y: pixelY };
     };
     
     const columnLabels = Array.from({ length: GRID_COLUMNS }, (_, i) => GRID_COLUMN_LABELS[i] || `C${i + 1}`);
@@ -974,6 +1254,143 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) 
                       </marker>
                     </defs>
                     
+                    <!-- Draw icons for ALL waypoints and POIs from map data -->
+                    <g class="map-icons">
+                      ${(() => {
+                        const iconElements = [];
+                        const iconSize = 24; // Icon size in pixels (reduced from 32)
+                        const iconOffset = iconSize / 2; // Center the icon
+                        let iconCount = 0;
+                        
+                        // Calculate map center for debugging
+                        const centerX = (bounds.minX + bounds.maxX) / 2;
+                        const centerY = (bounds.minY + bounds.maxY) / 2;
+                        const centerRadius = Math.min(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) * 0.15; // 15% of map size
+                        let centerIcons = 0;
+                        let outOfBoundsCount = 0;
+                        
+                        // Render icons for ALL waypoints - EVERY SINGLE ONE, NO MATTER WHAT
+                        if (mapData?.waypoints) {
+                          mapData.waypoints.forEach(wp => {
+                            if (!wp.coordinates) return; // Only skip if no coordinates
+                            
+                            const pixel = coordToPixel(wp.coordinates);
+                            
+                            // Always try to find an icon, use fallback if needed
+                            let iconPath = findIconFile(wp.name || 'Unknown', wp.type, wp.name || '');
+                            
+                            // If no icon found, use a colored circle as fallback - STILL SHOW IT
+                            if (!iconPath) {
+                              const typeColors = {
+                                'spawn': '#ffffff',
+                                'extraction': '#26c6da',
+                                'cache': '#e0e0e0',
+                                'arc': '#ef5350',
+                                'objective': '#ffeb3b',
+                                'other': '#9e9e9e'
+                              };
+                              const color = typeColors[wp.type || 'other'] || '#9e9e9e';
+                              iconElements.push(
+                                `<circle cx="${pixel.x}" cy="${pixel.y}" r="${iconSize / 2}" fill="${color}" opacity="0.7" stroke="#ffffff" stroke-width="1" title="${wp.name || 'Unknown'} (${wp.type || 'unknown'}) [${wp.coordinates.x.toFixed(0)}, ${wp.coordinates.y.toFixed(0)}]" />`
+                              );
+                            } else {
+                              iconElements.push(
+                                `<image href="${iconPath}" x="${pixel.x - iconOffset}" y="${pixel.y - iconOffset}" width="${iconSize}" height="${iconSize}" opacity="0.9" title="${wp.name || 'Unknown'} (${wp.type || 'unknown'}) [${wp.coordinates.x.toFixed(0)}, ${wp.coordinates.y.toFixed(0)}]" />`
+                              );
+                            }
+                            
+                            // Check if near center
+                            const distFromCenter = Math.sqrt(
+                              Math.pow(wp.coordinates.x - centerX, 2) + 
+                              Math.pow(wp.coordinates.y - centerY, 2)
+                            );
+                            if (distFromCenter < centerRadius) centerIcons++;
+                            
+                            // Check if icon is within map bounds
+                            const isInBounds = pixel.x >= -iconSize && pixel.x <= bounds.imageWidth + iconSize && 
+                                              pixel.y >= -iconSize && pixel.y <= bounds.imageHeight + iconSize;
+                            if (!isInBounds) outOfBoundsCount++;
+                            
+                            iconCount++;
+                          });
+                        }
+                        
+                        // Render icons for ALL POIs - EVERY SINGLE ONE, NO MATTER WHAT
+                        if (mapData?.pois) {
+                          mapData.pois.forEach(poi => {
+                            if (!poi.coordinates) return; // Only skip if no coordinates
+                            
+                            const pixel = coordToPixel(poi.coordinates);
+                            
+                            // Always try to find an icon, use fallback if needed
+                            let iconPath = findIconFile(poi.name || 'Unknown', poi.type, poi.name || '');
+                            
+                            // If no icon found, use a colored circle as fallback - STILL SHOW IT
+                            if (!iconPath) {
+                              const typeColors = {
+                                'cache': '#e0e0e0',
+                                'arc': '#ef5350',
+                                'objective': '#ffeb3b',
+                                'spawn': '#ffffff',
+                                'extraction': '#26c6da',
+                                'other': '#9e9e9e'
+                              };
+                              const color = typeColors[poi.type || 'other'] || '#9e9e9e';
+                              iconElements.push(
+                                `<circle cx="${pixel.x}" cy="${pixel.y}" r="${iconSize / 2}" fill="${color}" opacity="0.7" stroke="#ffffff" stroke-width="1" title="${poi.name || 'Unknown'} (${poi.type || 'unknown'}) [${poi.coordinates.x.toFixed(0)}, ${poi.coordinates.y.toFixed(0)}]" />`
+                              );
+                            } else {
+                              iconElements.push(
+                                `<image href="${iconPath}" x="${pixel.x - iconOffset}" y="${pixel.y - iconOffset}" width="${iconSize}" height="${iconSize}" opacity="0.9" title="${poi.name || 'Unknown'} (${poi.type || 'unknown'}) [${poi.coordinates.x.toFixed(0)}, ${poi.coordinates.y.toFixed(0)}]" />`
+                              );
+                            }
+                            
+                            // Check if near center
+                            const distFromCenter = Math.sqrt(
+                              Math.pow(poi.coordinates.x - centerX, 2) + 
+                              Math.pow(poi.coordinates.y - centerY, 2)
+                            );
+                            if (distFromCenter < centerRadius) centerIcons++;
+                            
+                            // Check if icon is within map bounds
+                            const isInBounds = pixel.x >= -iconSize && pixel.x <= bounds.imageWidth + iconSize && 
+                                              pixel.y >= -iconSize && pixel.y <= bounds.imageHeight + iconSize;
+                            if (!isInBounds) outOfBoundsCount++;
+                            
+                            iconCount++;
+                          });
+                        }
+                        
+                        // Log summary with debugging info
+                        console.log(`✅ Rendered ${iconCount} icons on map`);
+                        console.log(`   - ${centerIcons} icons near map center (within ${centerRadius.toFixed(0)} units of center)`);
+                        if (outOfBoundsCount > 0) {
+                          console.log(`   ⚠️  ${outOfBoundsCount} icons placed outside visible bounds`);
+                        }
+                        if (mapData?.waypoints) {
+                          console.log(`   - ${mapData.waypoints.length} waypoints processed`);
+                        }
+                        if (mapData?.pois) {
+                          console.log(`   - ${mapData.pois.length} POIs processed`);
+                        }
+                        console.log(`   - Map center: (${centerX.toFixed(0)}, ${centerY.toFixed(0)})`);
+                        console.log(`   - Bounds: X(${bounds.minX.toFixed(0)}-${bounds.maxX.toFixed(0)}) Y(${bounds.minY.toFixed(0)}-${bounds.maxY.toFixed(0)})`);
+                        console.log(`   - Image size: ${bounds.imageWidth}x${bounds.imageHeight}px`);
+                        console.log(`   - Scale: ${(bounds.imageWidth / (bounds.maxX - bounds.minX)).toFixed(2)}px per X unit, ${(bounds.imageHeight / (bounds.maxY - bounds.minY)).toFixed(2)}px per Y unit`);
+                        
+                        // Show sample coordinate transformations for debugging
+                        if (mapData?.waypoints && mapData.waypoints.length > 0) {
+                          const sample = mapData.waypoints[0];
+                          if (sample.coordinates) {
+                            const samplePixel = coordToPixel(sample.coordinates);
+                            console.log(`   - Sample: "${sample.name}" at (${sample.coordinates.x.toFixed(0)}, ${sample.coordinates.y.toFixed(0)}) -> pixel (${samplePixel.x.toFixed(0)}, ${samplePixel.y.toFixed(0)})`);
+                          }
+                        }
+                        
+                        return iconElements.join('\n                      ');
+                      })()}
+                    </g>
+                    
                     <!-- Draw curved path -->
                     <path class="waypoint-line" d="${curvedPathData}" />
                     
@@ -1009,6 +1426,7 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) 
                       let arrowsHtml = '';
                       
                       // Get user's spawn coordinates to exclude it
+                      // The first waypoint is the INFILL (user's spawn location)
                       const userSpawnCoords = firstWaypoint.coordinates;
                       
                       // Early spawn arrows (from waypointSpawnAnalysis)
@@ -1016,11 +1434,12 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) 
                         for (const analysis of risk.waypointSpawnAnalysis) {
                           // Skip if this is the user's spawn point
                           const spawnCoords = analysis.closestSpawn.coordinates;
+                          // Use a more accurate distance check (within 5 units = same spawn)
                           const distToUserSpawn = Math.sqrt(
                             Math.pow(spawnCoords.x - userSpawnCoords.x, 2) + 
                             Math.pow(spawnCoords.y - userSpawnCoords.y, 2)
                           );
-                          if (distToUserSpawn < 10) continue; // Skip user's own spawn
+                          if (distToUserSpawn < 5) continue; // Skip user's own spawn (more accurate threshold)
                           
                           const waypointPixel = coordToPixel(lootRun.waypoints[analysis.waypointIndex].coordinates);
                           const spawnPixel = coordToPixel(spawnCoords);
@@ -1028,13 +1447,16 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) 
                           // Calculate arrow direction
                           const dx = waypointPixel.x - spawnPixel.x;
                           const dy = waypointPixel.y - spawnPixel.y;
+                          const distance = Math.sqrt(dx * dx + dy * dy);
+                          if (distance < 1) continue; // Skip if too close
                           const angle = Math.atan2(dy, dx);
                           
                           // Offset arrow start/end to avoid overlapping with waypoint circles
+                          // Increased offset for better visibility
                           const waypointRadius = 10;
                           const spawnRadius = 8;
-                          const offsetStart = spawnRadius + 5;
-                          const offsetEnd = waypointRadius + 5;
+                          const offsetStart = spawnRadius + 15; // Increased from 5 to 15
+                          const offsetEnd = waypointRadius + 15; // Increased from 5 to 15
                           
                           const startX = spawnPixel.x + Math.cos(angle) * offsetStart;
                           const startY = spawnPixel.y + Math.sin(angle) * offsetStart;
@@ -1123,6 +1545,50 @@ function generateMapOverlay(lootRun, mapName, spawnPoints = [], mapData = null) 
             <div class="legend-item">
                 <div class="legend-color" style="background: #ff0000; border-color: #ff0000;"></div>
                 <span>Early spawn interception (bright red = can intercept, light red = safe) - shows arrival time</span>
+            </div>
+        </div>
+
+        <div class="legend" style="margin-top: 20px;">
+            <h3>🗺️ Map Icons Legend</h3>
+            <p style="color: #b0b0b0; font-size: 13px; margin-bottom: 15px;">
+                Icons on the map represent different location types. Hover over icons to see details.
+            </p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                ${(() => {
+                  const iconCategories = [
+                    { folder: 'spawn', name: 'Player Spawn Points', color: '#ffffff', shape: 'arrow_down' },
+                    { folder: 'extraction', name: 'Extraction Points', color: '#26c6da', shape: 'arrow_up' },
+                    { folder: 'loot-containers', name: 'Loot Containers', color: '#e0e0e0', shape: 'box' },
+                    { folder: 'locked-rooms', name: 'Locked Rooms', color: '#fbc02d', shape: 'padlock' },
+                    { folder: 'enemies-arcs', name: 'ARC Enemies', color: '#ef5350', shape: 'diamond' },
+                    { folder: 'objectives', name: 'Quest Objectives', color: '#ffeb3b', shape: 'star' },
+                    { folder: 'resources-plants', name: 'Harvestable Plants', color: '#66bb6a', shape: 'leaf' },
+                    { folder: 'supply-stations', name: 'Supply Stations', color: '#bdbdbd', shape: 'radio' },
+                    { folder: 'other', name: 'Other Items', color: '#9e9e9e', shape: 'circle' },
+                  ];
+                  
+                  return iconCategories.map(cat => {
+                    // Try to find a sample icon from this category
+                    const sampleIconPath = path.join(scriptDir, 'icons-pathfinding', cat.folder);
+                    let sampleIcon = null;
+                    try {
+                      if (fs.existsSync(sampleIconPath)) {
+                        const files = fs.readdirSync(sampleIconPath).filter(f => f.endsWith('.png') && f !== 'icon-names.txt');
+                        if (files.length > 0) {
+                          sampleIcon = `icons-pathfinding/${cat.folder}/${files[0]}`;
+                        }
+                      }
+                    } catch (e) {
+                      // Ignore errors
+                    }
+                    
+                    return `
+                <div class="legend-item" style="display: flex; align-items: center; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+                    ${sampleIcon ? `<img src="${sampleIcon}" width="24" height="24" style="margin-right: 10px; opacity: 0.9;" />` : `<div class="legend-color" style="background: ${cat.color}; width: 24px; height: 24px; margin-right: 10px;"></div>`}
+                    <span>${cat.name}</span>
+                </div>`;
+                  }).join('\n');
+                })()}
             </div>
         </div>
 

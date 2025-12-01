@@ -1,0 +1,41 @@
+ICON ORGANIZATION FOR PATHFINDING TOOL
+======================================================================
+
+Icons are organized by functional groups that make sense for pathfinding:
+
+SPAWN/
+  Player spawn points
+  38 icon(s)
+
+EXTRACTION/
+  Extraction points (hatches, elevators, lifts)
+  32 icon(s)
+
+LOOT-CONTAINERS/
+  Loot containers (caches, crates, cases)
+  267 icon(s)
+
+LOCKED-ROOMS/
+  Locked rooms requiring keys
+  41 icon(s)
+
+ENEMIES-ARCS/
+  ARC enemies and husks
+  71 icon(s)
+
+OBJECTIVES/
+  Quest objectives and interactive items
+  123 icon(s)
+
+RESOURCES-PLANTS/
+  Harvestable plants and resources
+  43 icon(s)
+
+SUPPLY-STATIONS/
+  Supply stations and depots
+  10 icon(s)
+
+OTHER/
+  Other miscellaneous items
+  244 icon(s)
+

@@ -1,0 +1,38 @@
+Field Crate Spawn.png
+Fuel Lines Player Spawn.png
+Near Buried City Residential Master Key.png
+Near Eyes on the Prize.png
+Near Fuel Cell.png
+Near Great Mullein.png
+Near Nail Down Roof Plates.png
+Near Prickly Pear.png
+Near Radio Tower Field Crate.png
+Near Search for Tian Wen's Cache.png
+Near Southwest water tower depot crate.png
+Near agave.png
+Near back-on-top.png
+Near bees.png
+Near celestes-journals.png
+Near field_crate.png
+Near great-mullein.png
+Near lemons.png
+Near mushroom.png
+Near olive.png
+Near pop.png
+Near prickly-pear.png
+Near raider_camp.png
+Near rollbot.png
+Near supply_station.png
+Near tick.png
+Near wasp.png
+Player Spawn.png
+Potential Player Spawn.png
+South Forest Spawn.png
+Spawn Point.png
+Spawn, North of Headhouse..png
+Spawn.png
+Under Ground Tunnel.png
+Village Shed Spawn.png
+Village Spawn Point.png
+West Village Piazza Roma.png
+player_spawn.png
